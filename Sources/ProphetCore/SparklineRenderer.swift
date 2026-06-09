@@ -59,7 +59,8 @@ public struct SparklineRenderer {
 		height: Double = ProphetDefaults.sparklineHeight,
 		showsPrice: Bool = false,
 		priceLabelFontSize: Double = ProphetDefaults.priceLabelFontSize,
-		colorScheme: MarketColorScheme = .defaultScheme
+		colorScheme: MarketColorScheme = .defaultScheme,
+		showsPercent: Bool = false
 	) -> NSImage {
 		let size = NSSize(width: width, height: height)
 		let image = NSImage(size: size)
@@ -77,7 +78,8 @@ public struct SparklineRenderer {
 				size: size,
 				showsPrice: showsPrice,
 				priceLabelFontSize: priceLabelFontSize,
-				colorScheme: colorScheme
+				colorScheme: colorScheme,
+				showsPercent: showsPercent
 			)
 			image.isTemplate = false
 			return image
@@ -93,14 +95,16 @@ public struct SparklineRenderer {
 		size: NSSize,
 		showsPrice: Bool,
 		priceLabelFontSize: Double,
-		colorScheme: MarketColorScheme
+		colorScheme: MarketColorScheme,
+		showsPercent: Bool
 	) {
 		let priceTextLayout: PriceTextLayout?
 		if showsPrice {
 			priceTextLayout = makePriceTextLayout(
 				for: snapshot,
 				size: size,
-				priceLabelFontSize: priceLabelFontSize
+				priceLabelFontSize: priceLabelFontSize,
+				showsPercent: showsPercent
 			)
 		} else {
 			priceTextLayout = nil
@@ -208,9 +212,13 @@ public struct SparklineRenderer {
 	private func makePriceTextLayout(
 		for snapshot: MarketSnapshot,
 		size: NSSize,
-		priceLabelFontSize: Double
+		priceLabelFontSize: Double,
+		showsPercent: Bool
 	) -> PriceTextLayout? {
-		guard let text = snapshotFormatter.statusPriceText(for: snapshot) else {
+		guard let text = snapshotFormatter.statusPriceText(
+			for: snapshot,
+			includesPercent: showsPercent
+		) else {
 			return nil
 		}
 
@@ -221,8 +229,11 @@ public struct SparklineRenderer {
 		)
 		let attributes: [NSAttributedString.Key: Any] = [.font: font]
 		let textSize = NSString(string: text).size(withAttributes: attributes)
+		let badgeWidth = showsPercent
+			? size.width
+			: min(textSize.width + priceBadgeHorizontalPadding * 2, size.width)
 		let badgeSize = NSSize(
-			width: min(textSize.width + priceBadgeHorizontalPadding * 2, size.width),
+			width: badgeWidth,
 			height: min(
 				max(textSize.height + priceBadgeVerticalPadding * 2, minimumPriceBadgeHeight),
 				size.height

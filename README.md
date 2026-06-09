@@ -14,6 +14,11 @@ The latest-price label is backed by a persistent TradingView quote stream. The
 sparkline keeps using one-minute bars, while the centered price label updates
 from quote `lp` messages between chart refreshes.
 
+Tooltips and the menu show the baseline price used for the displayed change
+percent. When TradingView quote change data is available, the baseline is derived
+from the live quote price and change; otherwise it falls back to the first
+visible chart bar.
+
 The visible curve follows TradingView's overview chart behavior: it starts at the
 most recent regular-session open, keeps the real timestamp spacing between bars,
 compresses long no-trade gaps into compact single-slash break markers, uses the
@@ -74,6 +79,9 @@ installation directory.
 Use `Always Show Price` to keep the latest price visible in the status bar.
 When it is off, the status item keeps the same width and only overlays the price
 while hovered.
+
+Use `Show Percent on Hover` to include the change percent in the centered hover
+label. When enabled, the label uses the full sparkline width while hovered.
 
 Use `Launch at Login` to control whether Prophet opens automatically after login.
 It is enabled by default on first launch.

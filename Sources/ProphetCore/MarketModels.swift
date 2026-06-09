@@ -136,24 +136,40 @@ public struct MarketSnapshot: Equatable {
 		lastPrice ?? bars.last?.close
 	}
 
+	public var effectiveBaselinePrice: Double? {
+		if let price = effectiveLastPrice, let change {
+			return price - change
+		}
+		if let price = effectiveLastPrice, let changePercent {
+			let denominator = 1 + changePercent / 100
+			if denominator != 0 {
+				return price / denominator
+			}
+		}
+		return bars.first?.close
+	}
+
 	public var effectiveChange: Double? {
 		if let change {
 			return change
 		}
-		guard let firstClose = bars.first?.close, let lastClose = bars.last?.close else {
+		guard let baseline = effectiveBaselinePrice,
+		      let price = effectiveLastPrice else {
 			return nil
 		}
-		return lastClose - firstClose
+		return price - baseline
 	}
 
 	public var effectiveChangePercent: Double? {
 		if let changePercent {
 			return changePercent
 		}
-		guard let firstClose = bars.first?.close, firstClose != 0, let change = effectiveChange else {
+		guard let baseline = effectiveBaselinePrice,
+		      baseline != 0,
+		      let change = effectiveChange else {
 			return nil
 		}
-		return change / firstClose * 100
+		return change / baseline * 100
 	}
 
 	public var isUp: Bool? {

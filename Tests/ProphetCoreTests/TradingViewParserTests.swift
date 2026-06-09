@@ -73,6 +73,21 @@ final class TradingViewParserTests: XCTestCase {
 		XCTAssertEqual(snapshot.effectiveLastPrice, 11)
 	}
 
+	func testSnapshotBaselineUsesLiveQuoteChange() {
+		let snapshot = MarketSnapshot(
+			instrument: Instrument(symbol: "NASDAQ:RKLB"),
+			bars: [
+				PriceBar(timestamp: 1000, open: 10, high: 10, low: 10, close: 10),
+				PriceBar(timestamp: 1060, open: 12, high: 12, low: 12, close: 12),
+			],
+			lastPrice: 11,
+			change: 1
+		)
+
+		XCTAssertEqual(snapshot.effectiveBaselinePrice, 10)
+		XCTAssertEqual(snapshot.effectiveChange, 1)
+	}
+
 	func testSnapshotFallsBackToLatestChartBarForDisplayedPrice() {
 		let snapshot = MarketSnapshot(
 			instrument: Instrument(symbol: "NASDAQ:RKLB"),
@@ -83,6 +98,7 @@ final class TradingViewParserTests: XCTestCase {
 		)
 
 		XCTAssertEqual(snapshot.effectiveLastPrice, 12)
+		XCTAssertEqual(snapshot.effectiveBaselinePrice, 10)
 	}
 
 	private func frame(

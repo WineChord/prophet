@@ -11,6 +11,7 @@ private let menuPricePlaceholder = "Loading..."
 private let refreshTitle = "Refresh"
 private let openTradingViewTitle = "Open in TradingView"
 private let alwaysShowPriceTitle = "Always Show Price"
+private let showPercentOnHoverTitle = "Show Percent on Hover"
 private let launchAtLoginTitle = "Launch at Login"
 private let priceLabelSizeTitle = "Price Label Size"
 private let colorSchemeTitle = "Color Scheme"
@@ -20,6 +21,7 @@ private let quitKeyEquivalent = "q"
 private let tooltipUnavailablePrice = "Price unavailable"
 private let tradingViewChartURLPrefix = "https://www.tradingview.com/chart/?symbol="
 private let alwaysShowPriceUserDefaultsKey = "alwaysShowPrice"
+private let showPercentOnHoverUserDefaultsKey = "showPercentOnHover"
 private let launchAtLoginUserDefaultsKey = "launchAtLogin"
 private let priceLabelSizeUserDefaultsKey = "priceLabelSize"
 private let colorSchemeUserDefaultsKey = "colorScheme"
@@ -247,6 +249,11 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		action: nil,
 		keyEquivalent: emptyKeyEquivalent
 	)
+	private let baselineItem = NSMenuItem(
+		title: emptyKeyEquivalent,
+		action: nil,
+		keyEquivalent: emptyKeyEquivalent
+	)
 	private let sessionItem = NSMenuItem(
 		title: emptyKeyEquivalent,
 		action: nil,
@@ -255,6 +262,11 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private let alwaysShowPriceItem = NSMenuItem(
 		title: alwaysShowPriceTitle,
 		action: #selector(toggleAlwaysShowPrice),
+		keyEquivalent: emptyKeyEquivalent
+	)
+	private let showPercentOnHoverItem = NSMenuItem(
+		title: showPercentOnHoverTitle,
+		action: #selector(toggleShowPercentOnHover),
 		keyEquivalent: emptyKeyEquivalent
 	)
 	private let launchAtLoginItem = NSMenuItem(
@@ -286,6 +298,9 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private var isHoveringStatusItem = false
 	private var alwaysShowPrice = UserDefaults.standard.bool(
 		forKey: alwaysShowPriceUserDefaultsKey
+	)
+	private var showPercentOnHover = UserDefaults.standard.bool(
+		forKey: showPercentOnHoverUserDefaultsKey
 	)
 	private var launchAtLogin = defaultEnabledPreference(
 		forKey: launchAtLoginUserDefaultsKey
@@ -358,6 +373,16 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		updateMenu()
 	}
 
+	@objc private func toggleShowPercentOnHover() {
+		showPercentOnHover.toggle()
+		UserDefaults.standard.set(
+			showPercentOnHover,
+			forKey: showPercentOnHoverUserDefaultsKey
+		)
+		renderStatusItem()
+		updateMenu()
+	}
+
 	@objc private func toggleLaunchAtLogin() {
 		launchAtLogin = SMAppService.mainApp.status != .enabled
 		UserDefaults.standard.set(launchAtLogin, forKey: launchAtLoginUserDefaultsKey)
@@ -402,8 +427,10 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		let menu = NSMenu()
 		menu.delegate = self
 		priceItem.isEnabled = false
+		baselineItem.isEnabled = false
 		sessionItem.isEnabled = false
 		menu.addItem(priceItem)
+		menu.addItem(baselineItem)
 		menu.addItem(sessionItem)
 		menu.addItem(.separator())
 		menu.addItem(
@@ -422,6 +449,8 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		)
 		alwaysShowPriceItem.target = self
 		menu.addItem(alwaysShowPriceItem)
+		showPercentOnHoverItem.target = self
+		menu.addItem(showPercentOnHoverItem)
 		launchAtLoginItem.target = self
 		menu.addItem(launchAtLoginItem)
 		configurePriceLabelSizeMenu()
@@ -532,23 +561,31 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private func updateMenu() {
 		if let snapshot = latestSnapshot {
 			priceItem.title = tooltipText(for: snapshot)
+			baselineItem.title = snapshotFormatter.baselineText(for: snapshot)
 			sessionItem.title = "\(snapshot.session.displayName) • \(snapshot.instrument.symbol)"
 			updatePreferenceMenuItems()
 			return
 		}
 		if let latestError {
 			priceItem.title = latestError.localizedDescription
+			baselineItem.title = snapshotFormatter.baselineText(
+				for: emptySnapshot()
+			)
 			sessionItem.title = configuration.requestedSymbol
 			updatePreferenceMenuItems()
 			return
 		}
 		priceItem.title = menuPricePlaceholder
+		baselineItem.title = snapshotFormatter.baselineText(
+			for: emptySnapshot()
+		)
 		sessionItem.title = configuration.requestedSymbol
 		updatePreferenceMenuItems()
 	}
 
 	private func updatePreferenceMenuItems() {
 		alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
+		showPercentOnHoverItem.state = showPercentOnHover ? .on : .off
 		launchAtLoginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
 		for item in priceLabelSizeItems {
 			let rawValue = item.representedObject as? String
@@ -647,12 +684,24 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			height: ProphetDefaults.sparklineHeight,
 			showsPrice: shouldShowInlinePrice(),
 			priceLabelFontSize: priceLabelSize.fontSize,
-			colorScheme: colorScheme.rendererScheme
+			colorScheme: colorScheme.rendererScheme,
+			showsPercent: shouldShowInlinePercent()
 		)
 	}
 
 	private func shouldShowInlinePrice() -> Bool {
 		latestSnapshot != nil && (alwaysShowPrice || isHoveringStatusItem)
+	}
+
+	private func shouldShowInlinePercent() -> Bool {
+		latestSnapshot != nil && showPercentOnHover && isHoveringStatusItem
+	}
+
+	private func emptySnapshot() -> MarketSnapshot {
+		MarketSnapshot(
+			instrument: Instrument(symbol: configuration.requestedSymbol),
+			bars: []
+		)
 	}
 }
 
