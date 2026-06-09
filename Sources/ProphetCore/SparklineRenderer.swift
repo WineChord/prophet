@@ -4,7 +4,8 @@ import Foundation
 
 private let sparklinePadding = 2.0
 private let sparklineLineWidth = 1.35
-private let regularFillAlpha = 0.11
+private let regularLineAlpha = 0.9
+private let regularFillAlpha = 0.07
 private let extendedLineAlpha = 0.75
 private let breakMarkerAlpha = 0.82
 private let breakMarkerHeight = 5.5
@@ -28,9 +29,9 @@ private let tradingViewGreen = NSColor(
 	alpha: 1
 )
 private let tradingViewRed = NSColor(
-	red: 213.0 / 255.0,
-	green: 82.0 / 255.0,
-	blue: 76.0 / 255.0,
+	red: 196.0 / 255.0,
+	green: 92.0 / 255.0,
+	blue: 86.0 / 255.0,
 	alpha: 1
 )
 private let tradingViewGray = NSColor(
@@ -357,7 +358,10 @@ public struct SparklineRenderer {
 		guard let isUp = snapshot.isUp else {
 			return NSColor.labelColor
 		}
-		return directionColor(isUp: isUp, colorScheme: colorScheme)
+		return directionColor(
+			isUp: isUp,
+			colorScheme: colorScheme
+		).withAlphaComponent(regularLineAlpha)
 	}
 
 	private func priceBadgeColor(
