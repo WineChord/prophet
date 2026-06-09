@@ -1,8 +1,8 @@
 # Prophet
 
 Prophet is a compact macOS menu-bar sparkline for one TradingView symbol. It
-renders the curve and latest price directly in the status bar, with the native
-hover tooltip kept as a secondary detail view.
+renders the curve in the status bar, expands to show the latest price on hover,
+and keeps the native hover tooltip as a secondary detail view.
 
 The app requests one-minute TradingView chart bars with the `extended` session
 flag, so the curve includes every extended-hours bar TradingView returns for the
@@ -63,3 +63,9 @@ scripts/install.sh
 `scripts/install.sh` installs the app to `~/Applications/Prophet.app` by default
 and launches it immediately. Set `PROPHET_INSTALL_DIR` to choose another
 installation directory.
+
+## Menu
+
+Use `Always Show Price` to keep the latest price visible in the status bar.
+When it is off, the status item stays compact and only shows the price while
+hovered.

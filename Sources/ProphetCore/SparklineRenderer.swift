@@ -44,7 +44,8 @@ public struct SparklineRenderer {
 		for snapshot: MarketSnapshot?,
 		error: Error?,
 		width: Double,
-		height: Double = ProphetDefaults.sparklineHeight
+		height: Double = ProphetDefaults.sparklineHeight,
+		showsPrice: Bool = false
 	) -> NSImage {
 		let size = NSSize(width: width, height: height)
 		let image = NSImage(size: size)
@@ -57,7 +58,7 @@ public struct SparklineRenderer {
 		NSRect(origin: .zero, size: size).fill()
 
 		if let snapshot, snapshot.bars.count > 1 {
-			drawSparkline(snapshot: snapshot, size: size)
+			drawSparkline(snapshot: snapshot, size: size, showsPrice: showsPrice)
 			image.isTemplate = false
 			return image
 		}
@@ -67,8 +68,12 @@ public struct SparklineRenderer {
 		return image
 	}
 
-	private func drawSparkline(snapshot: MarketSnapshot, size: NSSize) {
-		let priceTextLayout = priceTextLayout(for: snapshot, size: size)
+	private func drawSparkline(
+		snapshot: MarketSnapshot,
+		size: NSSize,
+		showsPrice: Bool
+	) {
+		let priceTextLayout = showsPrice ? priceTextLayout(for: snapshot, size: size) : nil
 		let chartWidth = priceTextLayout?.chartWidth ?? size.width
 		let timeline = MarketTimeline(timeZoneIdentifier: snapshot.timeZoneIdentifier)
 		let layout = TimelineGeometry.layout(

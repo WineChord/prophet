@@ -8,11 +8,13 @@ private let smokeFetchArgument = "--smoke-fetch"
 private let menuPricePlaceholder = "Loading..."
 private let refreshTitle = "Refresh"
 private let openTradingViewTitle = "Open in TradingView"
+private let alwaysShowPriceTitle = "Always Show Price"
 private let quitTitle = "Quit Prophet"
 private let emptyKeyEquivalent = ""
 private let quitKeyEquivalent = "q"
 private let tooltipUnavailablePrice = "Price unavailable"
 private let tradingViewChartURLPrefix = "https://www.tradingview.com/chart/?symbol="
+private let alwaysShowPriceUserDefaultsKey = "alwaysShowPrice"
 
 private var retainedDelegate: ProphetAppDelegate?
 
@@ -70,13 +72,25 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		action: nil,
 		keyEquivalent: emptyKeyEquivalent
 	)
+	private let alwaysShowPriceItem = NSMenuItem(
+		title: alwaysShowPriceTitle,
+		action: #selector(toggleAlwaysShowPrice),
+		keyEquivalent: emptyKeyEquivalent
+	)
 	private var timer: Timer?
 	private var refreshTask: Task<Void, Never>?
 	private var latestSnapshot: MarketSnapshot?
 	private var latestError: Error?
+	private var hoverTracker: StatusItemHoverTracker?
+	private var isHoveringStatusItem = false
+	private var alwaysShowPrice = UserDefaults.standard.bool(
+		forKey: alwaysShowPriceUserDefaultsKey
+	)
 
 	override init() {
-		statusItem = NSStatusBar.system.statusItem(withLength: AppConfiguration.load().statusItemWidth)
+		statusItem = NSStatusBar.system.statusItem(
+			withLength: ProphetDefaults.compactStatusItemWidth
+		)
 		super.init()
 	}
 
@@ -115,20 +129,26 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		NSWorkspace.shared.open(url)
 	}
 
+	@objc private func toggleAlwaysShowPrice() {
+		alwaysShowPrice.toggle()
+		UserDefaults.standard.set(
+			alwaysShowPrice,
+			forKey: alwaysShowPriceUserDefaultsKey
+		)
+		renderStatusItem()
+		updateMenu()
+	}
+
 	@objc private func quit() {
 		NSApplication.shared.terminate(nil)
 	}
 
 	private func configureStatusItem() {
-		statusItem.length = configuration.statusItemWidth
+		statusItem.length = currentStatusItemWidth()
 		statusItem.button?.imagePosition = .imageOnly
 		statusItem.button?.toolTip = "\(configuration.appName): \(menuPricePlaceholder)"
-		statusItem.button?.image = renderer.image(
-			for: nil,
-			error: nil,
-			width: configuration.statusItemWidth,
-			height: ProphetDefaults.sparklineHeight
-		)
+		renderStatusItem()
+		configureHoverTracking()
 
 		let menu = NSMenu()
 		menu.delegate = self
@@ -151,6 +171,8 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 				keyEquivalent: emptyKeyEquivalent
 			)
 		)
+		alwaysShowPriceItem.target = self
+		menu.addItem(alwaysShowPriceItem)
 		menu.addItem(.separator())
 		menu.addItem(
 			NSMenuItem(
@@ -188,24 +210,14 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private func apply(snapshot: MarketSnapshot) {
 		latestSnapshot = snapshot
 		latestError = nil
-		statusItem.button?.image = renderer.image(
-			for: snapshot,
-			error: nil,
-			width: configuration.statusItemWidth,
-			height: ProphetDefaults.sparklineHeight
-		)
+		renderStatusItem()
 		statusItem.button?.toolTip = tooltipText(for: snapshot)
 		updateMenu()
 	}
 
 	private func apply(error: Error) {
 		latestError = error
-		statusItem.button?.image = renderer.image(
-			for: latestSnapshot,
-			error: error,
-			width: configuration.statusItemWidth,
-			height: ProphetDefaults.sparklineHeight
-		)
+		renderStatusItem()
 		statusItem.button?.toolTip = "\(configuration.appName): \(error.localizedDescription)"
 		updateMenu()
 	}
@@ -214,15 +226,18 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		if let snapshot = latestSnapshot {
 			priceItem.title = tooltipText(for: snapshot)
 			sessionItem.title = "\(snapshot.session.displayName) • \(snapshot.instrument.symbol)"
+			alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
 			return
 		}
 		if let latestError {
 			priceItem.title = latestError.localizedDescription
 			sessionItem.title = configuration.requestedSymbol
+			alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
 			return
 		}
 		priceItem.title = menuPricePlaceholder
 		sessionItem.title = configuration.requestedSymbol
+		alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
 	}
 
 	private func tooltipText(for snapshot: MarketSnapshot) -> String {
@@ -230,5 +245,84 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			for: snapshot,
 			unavailablePriceText: tooltipUnavailablePrice
 		)
+	}
+
+	private func configureHoverTracking() {
+		guard let button = statusItem.button else {
+			return
+		}
+
+		let tracker = StatusItemHoverTracker(
+			onEnter: { [weak self] in
+				self?.setHoveringStatusItem(true)
+			},
+			onExit: { [weak self] in
+				self?.setHoveringStatusItem(false)
+			}
+		)
+		hoverTracker = tracker
+		button.addTrackingArea(
+			NSTrackingArea(
+				rect: .zero,
+				options: [
+					.mouseEnteredAndExited,
+					.activeAlways,
+					.inVisibleRect,
+				],
+				owner: tracker,
+				userInfo: nil
+			)
+		)
+	}
+
+	private func setHoveringStatusItem(_ isHovering: Bool) {
+		guard isHoveringStatusItem != isHovering else {
+			return
+		}
+		isHoveringStatusItem = isHovering
+		renderStatusItem()
+	}
+
+	private func renderStatusItem() {
+		let width = currentStatusItemWidth()
+		statusItem.length = width
+		statusItem.button?.image = renderer.image(
+			for: latestSnapshot,
+			error: latestError,
+			width: width,
+			height: ProphetDefaults.sparklineHeight,
+			showsPrice: shouldShowInlinePrice()
+		)
+	}
+
+	private func currentStatusItemWidth() -> Double {
+		shouldShowInlinePrice()
+			? configuration.statusItemWidth
+			: ProphetDefaults.compactStatusItemWidth
+	}
+
+	private func shouldShowInlinePrice() -> Bool {
+		latestSnapshot != nil && (alwaysShowPrice || isHoveringStatusItem)
+	}
+}
+
+private final class StatusItemHoverTracker: NSObject {
+	private let onEnter: () -> Void
+	private let onExit: () -> Void
+
+	init(
+		onEnter: @escaping () -> Void,
+		onExit: @escaping () -> Void
+	) {
+		self.onEnter = onEnter
+		self.onExit = onExit
+	}
+
+	@objc func mouseEntered(with event: NSEvent) {
+		onEnter()
+	}
+
+	@objc func mouseExited(with event: NSEvent) {
+		onExit()
 	}
 }
