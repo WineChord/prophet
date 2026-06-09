@@ -29,6 +29,16 @@ final class SparklineGeometryTests: XCTestCase {
 		XCTAssertEqual(points.map(\.y), [9, 9, 9])
 	}
 
+	func testHigherValuesRenderHigher() {
+		let points = SparklineGeometry.points(
+			for: [10, 12],
+			in: CGSize(width: 20, height: 20),
+			padding: 2
+		)
+
+		XCTAssertLessThan(points[0].y, points[1].y)
+	}
+
 	func testTimelinePointsPreserveTimeGaps() {
 		let points = TimelineGeometry.points(
 			for: [
@@ -41,5 +51,18 @@ final class SparklineGeometryTests: XCTestCase {
 		)
 
 		XCTAssertEqual(points.map(\.x), [0, 10, 100])
+	}
+
+	func testTimelineHigherPricesRenderHigher() {
+		let points = TimelineGeometry.points(
+			for: [
+				PriceBar(timestamp: 0, open: 10, high: 10, low: 10, close: 10),
+				PriceBar(timestamp: 60, open: 12, high: 12, low: 12, close: 12),
+			],
+			in: CGSize(width: 20, height: 20),
+			padding: 2
+		)
+
+		XCTAssertLessThan(points[0].y, points[1].y)
 	}
 }

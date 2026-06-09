@@ -28,7 +28,7 @@ public enum SparklineGeometry {
 			} else {
 				normalizedValue = (value - minimumValue) / valueRange
 			}
-			let yPosition = padding + drawableHeight * CGFloat(1 - normalizedValue)
+			let yPosition = padding + drawableHeight * CGFloat(normalizedValue)
 			return CGPoint(x: xPosition, y: yPosition)
 		}
 	}

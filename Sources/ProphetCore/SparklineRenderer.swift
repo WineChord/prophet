@@ -83,7 +83,7 @@ public struct SparklineRenderer {
 				drawFill(
 					from: points[index - 1],
 					to: points[index],
-					bottom: size.height - sparklinePadding,
+					bottom: sparklinePadding,
 					color: color
 				)
 			}
