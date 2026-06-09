@@ -66,6 +66,22 @@ public struct TradingViewQuote: Equatable {
 		self.currencyCode = currencyCode
 		self.timeZoneIdentifier = timeZoneIdentifier
 	}
+
+	public func merging(_ quote: TradingViewQuote) -> TradingViewQuote {
+		TradingViewQuote(
+			symbol: quote.symbol ?? symbol,
+			displaySymbol: quote.displaySymbol ?? displaySymbol,
+			description: quote.description ?? description,
+			exchange: quote.exchange ?? exchange,
+			lastPrice: quote.lastPrice ?? lastPrice,
+			change: quote.change ?? change,
+			changePercent: quote.changePercent ?? changePercent,
+			session: quote.session == .unknown ? session : quote.session,
+			lastTradeTime: quote.lastTradeTime ?? lastTradeTime,
+			currencyCode: quote.currencyCode ?? currencyCode,
+			timeZoneIdentifier: quote.timeZoneIdentifier ?? timeZoneIdentifier
+		)
+	}
 }
 
 public enum TradingViewParser {

@@ -10,6 +10,10 @@ flag, so the curve includes every extended-hours bar TradingView returns for the
 symbol: pre-market, regular market, post-market, and any overnight bars available
 from the data source.
 
+The latest-price label is backed by a persistent TradingView quote stream. The
+sparkline keeps using one-minute bars, while the centered price label updates
+from quote `lp` messages between chart refreshes.
+
 The visible curve follows TradingView's overview chart behavior: it starts at the
 most recent regular-session open, keeps the real timestamp spacing between bars,
 compresses long no-trade gaps into compact single-slash break markers, uses the

@@ -133,7 +133,7 @@ public struct MarketSnapshot: Equatable {
 	}
 
 	public var effectiveLastPrice: Double? {
-		bars.last?.close ?? lastPrice
+		lastPrice ?? bars.last?.close
 	}
 
 	public var effectiveChange: Double? {

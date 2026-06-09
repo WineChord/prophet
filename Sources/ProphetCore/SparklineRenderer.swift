@@ -28,9 +28,9 @@ private let tradingViewGreen = NSColor(
 	alpha: 1
 )
 private let tradingViewRed = NSColor(
-	red: 242.0 / 255.0,
-	green: 54.0 / 255.0,
-	blue: 69.0 / 255.0,
+	red: 213.0 / 255.0,
+	green: 82.0 / 255.0,
+	blue: 76.0 / 255.0,
 	alpha: 1
 )
 private let tradingViewGray = NSColor(

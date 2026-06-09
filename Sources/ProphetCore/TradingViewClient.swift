@@ -111,6 +111,33 @@ public final class TradingViewClient: MarketDataFetching {
 		}
 	}
 
+	public func quoteStream(
+		for requestedSymbol: String
+	) -> AsyncThrowingStream<TradingViewQuote, Error> {
+		AsyncThrowingStream { continuation in
+			let streamTask = Task {
+				do {
+					let instrument = try await symbolResolver.resolve(requestedSymbol)
+					try await streamQuotes(
+						for: instrument,
+						continuation: continuation
+					)
+					continuation.finish()
+				} catch {
+					if Task.isCancelled {
+						continuation.finish()
+					} else {
+						continuation.finish(throwing: error)
+					}
+				}
+			}
+
+			continuation.onTermination = { _ in
+				streamTask.cancel()
+			}
+		}
+	}
+
 	private func fetchSnapshot(
 		for instrument: Instrument,
 		barCount: Int
@@ -177,6 +204,54 @@ public final class TradingViewClient: MarketDataFetching {
 		throw TradingViewError.timeout
 	}
 
+	private func streamQuotes(
+		for instrument: Instrument,
+		continuation: AsyncThrowingStream<TradingViewQuote, Error>.Continuation
+	) async throws {
+		guard let url = URL(string: webSocketEndpoint) else {
+			throw TradingViewError.invalidURL(webSocketEndpoint)
+		}
+
+		var request = URLRequest(url: url)
+		request.setValue(originHeaderValue, forHTTPHeaderField: originHeaderName)
+		request.setValue(userAgentHeaderValue, forHTTPHeaderField: userAgentHeaderName)
+
+		let task = urlSession.webSocketTask(with: request)
+		task.resume()
+		defer {
+			task.cancel(with: .normalClosure, reason: nil)
+		}
+
+		let quoteSession = randomSession(prefix: quoteSessionPrefix)
+		for message in try quoteSetupMessages(
+			symbol: instrument.symbol,
+			quoteSession: quoteSession
+		) {
+			try await task.send(.string(message))
+		}
+
+		var quote = TradingViewQuote()
+		while !Task.isCancelled {
+			let message = try await task.receive()
+			let text = try textMessage(from: message)
+			let frames = try TradingViewCodec.decodeFrames(from: text)
+
+			for frame in frames {
+				if let heartbeat = frame.heartbeat {
+					try await task.send(.string(heartbeat))
+					continue
+				}
+				if let serverError = TradingViewParser.serverError(from: frame) {
+					throw TradingViewError.server(serverError)
+				}
+				if let nextQuote = TradingViewParser.quote(from: frame) {
+					quote = quote.merging(nextQuote)
+					continuation.yield(quote)
+				}
+			}
+		}
+	}
+
 	private func setupMessages(
 		instrument: Instrument,
 		barCount: Int,
@@ -227,6 +302,34 @@ public final class TradingViewClient: MarketDataFetching {
 			TradingViewCodec.encode(
 				method: switchTimezoneMethod,
 				parameters: [chartSession, exchangeTimezone]
+			),
+		]
+	}
+
+	private func quoteSetupMessages(
+		symbol: String,
+		quoteSession: String
+	) throws -> [String] {
+		try [
+			TradingViewCodec.encode(
+				method: setAuthTokenMethod,
+				parameters: [unauthorizedUserToken]
+			),
+			TradingViewCodec.encode(
+				method: quoteCreateSessionMethod,
+				parameters: [quoteSession]
+			),
+			TradingViewCodec.encode(
+				method: quoteSetFieldsMethod,
+				parameters: [quoteSession] + quoteFields()
+			),
+			TradingViewCodec.encode(
+				method: quoteAddSymbolsMethod,
+				parameters: [quoteSession, symbol]
+			),
+			TradingViewCodec.encode(
+				method: quoteFastSymbolsMethod,
+				parameters: [quoteSession, symbol]
 			),
 		]
 	}

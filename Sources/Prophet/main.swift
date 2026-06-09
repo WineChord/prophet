@@ -20,6 +20,7 @@ private let alwaysShowPriceUserDefaultsKey = "alwaysShowPrice"
 private let priceLabelSizeUserDefaultsKey = "priceLabelSize"
 private let colorSchemeUserDefaultsKey = "colorScheme"
 private let hoverPollInterval: TimeInterval = 0.08
+private let quoteStreamReconnectDelayNanoseconds: UInt64 = 2_000_000_000
 
 private var retainedDelegate: ProphetAppDelegate?
 
@@ -118,7 +119,7 @@ private enum SmokeFetchCommand {
 @MainActor
 private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 	private let configuration = AppConfiguration.load()
-	private let client: MarketDataFetching = TradingViewClient()
+	private let client = TradingViewClient()
 	private let renderer = SparklineRenderer()
 	private let snapshotFormatter = MarketSnapshotFormatter()
 	private let statusItem: NSStatusItem
@@ -154,7 +155,9 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private var timer: Timer?
 	private var hoverPollTimer: Timer?
 	private var refreshTask: Task<Void, Never>?
+	private var quoteStreamTask: Task<Void, Never>?
 	private var latestSnapshot: MarketSnapshot?
+	private var latestQuote: TradingViewQuote?
 	private var latestError: Error?
 	private var isHoveringStatusItem = false
 	private var alwaysShowPrice = UserDefaults.standard.bool(
@@ -181,6 +184,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		configureStatusItem()
 		startHoverPolling()
+		startQuoteStream()
 		refresh()
 		timer = Timer.scheduledTimer(
 			withTimeInterval: configuration.updateInterval,
@@ -195,6 +199,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	func applicationWillTerminate(_ notification: Notification) {
 		timer?.invalidate()
 		hoverPollTimer?.invalidate()
+		quoteStreamTask?.cancel()
 		refreshTask?.cancel()
 	}
 
@@ -351,10 +356,25 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	}
 
 	private func apply(snapshot: MarketSnapshot) {
+		let snapshot = latestQuote.map { snapshot.applying(quote: $0) } ?? snapshot
 		latestSnapshot = snapshot
 		latestError = nil
 		renderStatusItem()
 		statusItem.button?.toolTip = tooltipText(for: snapshot)
+		updateMenu()
+	}
+
+	private func apply(quote: TradingViewQuote) {
+		latestQuote = latestQuote?.merging(quote) ?? quote
+		guard let latestQuote, let snapshot = latestSnapshot else {
+			return
+		}
+
+		let updatedSnapshot = snapshot.applying(quote: latestQuote)
+		latestSnapshot = updatedSnapshot
+		latestError = nil
+		renderStatusItem()
+		statusItem.button?.toolTip = tooltipText(for: updatedSnapshot)
 		updateMenu()
 	}
 
@@ -363,6 +383,13 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		renderStatusItem()
 		statusItem.button?.toolTip = "\(configuration.appName): \(error.localizedDescription)"
 		updateMenu()
+	}
+
+	private func applyQuoteStream(error: Error) {
+		guard latestSnapshot == nil else {
+			return
+		}
+		apply(error: error)
 	}
 
 	private func updateMenu() {
@@ -413,6 +440,31 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		updateHoverStateFromMouseLocation()
 	}
 
+	private func startQuoteStream() {
+		quoteStreamTask?.cancel()
+		let requestedSymbol = configuration.requestedSymbol
+		let client = client
+		quoteStreamTask = Task { [weak self] in
+			while !Task.isCancelled {
+				do {
+					for try await quote in client.quoteStream(for: requestedSymbol) {
+						await MainActor.run {
+							self?.apply(quote: quote)
+						}
+					}
+				} catch {
+					await MainActor.run {
+						self?.applyQuoteStream(error: error)
+					}
+				}
+
+				if !Task.isCancelled {
+					try? await Task.sleep(nanoseconds: quoteStreamReconnectDelayNanoseconds)
+				}
+			}
+		}
+	}
+
 	private func updateHoverStateFromMouseLocation() {
 		guard let button = statusItem.button,
 		      let window = button.window else {
@@ -449,5 +501,33 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 	private func shouldShowInlinePrice() -> Bool {
 		latestSnapshot != nil && (alwaysShowPrice || isHoveringStatusItem)
+	}
+}
+
+private extension MarketSnapshot {
+	func applying(quote: TradingViewQuote) -> MarketSnapshot {
+		MarketSnapshot(
+			instrument: instrument.applying(quote: quote),
+			bars: bars,
+			lastPrice: quote.lastPrice ?? lastPrice,
+			change: quote.change ?? change,
+			changePercent: quote.changePercent ?? changePercent,
+			session: quote.session == .unknown ? session : quote.session,
+			lastTradeTime: quote.lastTradeTime ?? lastTradeTime,
+			receivedAt: Date(),
+			currencyCode: quote.currencyCode ?? currencyCode,
+			timeZoneIdentifier: quote.timeZoneIdentifier ?? timeZoneIdentifier
+		)
+	}
+}
+
+private extension Instrument {
+	func applying(quote: TradingViewQuote) -> Instrument {
+		Instrument(
+			symbol: quote.symbol ?? symbol,
+			displaySymbol: quote.displaySymbol ?? displaySymbol,
+			description: quote.description ?? description,
+			exchange: quote.exchange ?? exchange
+		)
 	}
 }

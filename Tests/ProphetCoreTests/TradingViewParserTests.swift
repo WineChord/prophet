@@ -60,7 +60,7 @@ final class TradingViewParserTests: XCTestCase {
 		XCTAssertEqual(quote?.timeZoneIdentifier, "America/New_York")
 	}
 
-	func testSnapshotPrefersLatestChartBarForDisplayedPrice() {
+	func testSnapshotPrefersLiveQuoteForDisplayedPrice() {
 		let snapshot = MarketSnapshot(
 			instrument: Instrument(symbol: "NASDAQ:RKLB"),
 			bars: [
@@ -68,6 +68,18 @@ final class TradingViewParserTests: XCTestCase {
 				PriceBar(timestamp: 1060, open: 12, high: 12, low: 12, close: 12),
 			],
 			lastPrice: 11
+		)
+
+		XCTAssertEqual(snapshot.effectiveLastPrice, 11)
+	}
+
+	func testSnapshotFallsBackToLatestChartBarForDisplayedPrice() {
+		let snapshot = MarketSnapshot(
+			instrument: Instrument(symbol: "NASDAQ:RKLB"),
+			bars: [
+				PriceBar(timestamp: 1000, open: 10, high: 10, low: 10, close: 10),
+				PriceBar(timestamp: 1060, open: 12, high: 12, low: 12, close: 12),
+			]
 		)
 
 		XCTAssertEqual(snapshot.effectiveLastPrice, 12)
