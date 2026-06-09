@@ -7,9 +7,9 @@ private let sparklineLineWidth = 1.35
 private let regularFillAlpha = 0.11
 private let extendedLineAlpha = 0.75
 private let breakMarkerAlpha = 0.82
-private let breakMarkerHeight = 9.0
-private let breakMarkerLean = 3.0
-private let breakMarkerLineWidth = 1.05
+private let breakMarkerHeight = 5.5
+private let breakMarkerLean = 2.0
+private let breakMarkerLineWidth = 0.95
 private let loadingLineWidth = 1.0
 private let loadingLineAlpha = 0.45
 private let tradingViewGreen = NSColor(
@@ -139,13 +139,13 @@ public struct SparklineRenderer {
 		path.move(
 			to: NSPoint(
 				x: centerX - breakMarkerLean / 2,
-				y: centerY - breakMarkerHeight / 2
+				y: centerY + breakMarkerHeight / 2
 			)
 		)
 		path.line(
 			to: NSPoint(
 				x: centerX + breakMarkerLean / 2,
-				y: centerY + breakMarkerHeight / 2
+				y: centerY - breakMarkerHeight / 2
 			)
 		)
 		path.lineWidth = breakMarkerLineWidth
