@@ -3,6 +3,12 @@ import Foundation
 import XCTest
 
 final class AppConfigurationTests: XCTestCase {
+	func testLoadUsesCompactDefaultStatusWidth() {
+		let configuration = AppConfiguration.load(environment: [:], configURL: nil)
+
+		XCTAssertEqual(configuration.statusItemWidth, ProphetDefaults.compactStatusItemWidth)
+	}
+
 	func testLoadUsesEnvironmentOverrides() {
 		let configuration = AppConfiguration.load(
 			environment: [

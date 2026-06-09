@@ -90,7 +90,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 	override init() {
 		statusItem = NSStatusBar.system.statusItem(
-			withLength: ProphetDefaults.compactStatusItemWidth
+			withLength: ProphetDefaults.statusItemWidth
 		)
 		super.init()
 	}
@@ -147,7 +147,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	}
 
 	private func configureStatusItem() {
-		statusItem.length = currentStatusItemWidth()
+		statusItem.length = configuration.statusItemWidth
 		statusItem.button?.imagePosition = .imageOnly
 		statusItem.button?.toolTip = "\(configuration.appName): \(menuPricePlaceholder)"
 		renderStatusItem()
@@ -281,7 +281,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	}
 
 	private func renderStatusItem() {
-		let width = currentStatusItemWidth()
+		let width = configuration.statusItemWidth
 		statusItem.length = width
 		statusItem.button?.image = renderer.image(
 			for: latestSnapshot,
@@ -290,12 +290,6 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			height: ProphetDefaults.sparklineHeight,
 			showsPrice: shouldShowInlinePrice()
 		)
-	}
-
-	private func currentStatusItemWidth() -> Double {
-		shouldShowInlinePrice()
-			? configuration.statusItemWidth
-			: ProphetDefaults.compactStatusItemWidth
 	}
 
 	private func shouldShowInlinePrice() -> Bool {
