@@ -12,7 +12,9 @@ from the data source.
 
 The latest-price label is backed by a persistent TradingView quote stream. The
 sparkline keeps using one-minute bars, while the centered price label updates
-from quote `lp` messages between chart refreshes.
+from quote messages between chart refreshes. Regular-session prices use `lp`;
+pre-market and post-market prices use the matching extended-session close fields
+when TradingView reports them.
 
 Tooltips and the menu show the baseline price used for the displayed change
 percent. When TradingView quote change data is available, the baseline is derived

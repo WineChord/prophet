@@ -38,6 +38,9 @@ final class TradingViewParserTests: XCTestCase {
 						"lp": 113.65,
 						"ch": 3.57,
 						"chp": 3.24,
+						"premarket_close": 118.19,
+						"premarket_change": 4.54,
+						"premarket_change_percent": 3.99,
 						"current_session": "pre_market",
 						"lp_time": 1_781_000_000,
 						"currency_code": "USD",
@@ -55,9 +58,87 @@ final class TradingViewParserTests: XCTestCase {
 		XCTAssertEqual(quote?.symbol, "NASDAQ:RKLB")
 		XCTAssertEqual(quote?.displaySymbol, "RKLB")
 		XCTAssertEqual(quote?.lastPrice, 113.65)
+		XCTAssertEqual(quote?.preMarketPrice, 118.19)
+		XCTAssertEqual(quote?.preMarketChange, 4.54)
+		XCTAssertEqual(quote?.preMarketChangePercent, 3.99)
+		XCTAssertEqual(quote?.effectiveLastPrice, 118.19)
+		XCTAssertEqual(quote?.effectiveChange, 4.54)
+		XCTAssertEqual(quote?.effectiveChangePercent, 3.99)
 		XCTAssertEqual(quote?.session, .preMarket)
 		XCTAssertEqual(quote?.currencyCode, "USD")
 		XCTAssertEqual(quote?.timeZoneIdentifier, "America/New_York")
+	}
+
+	func testMarketSessionParsesTradingViewMarketAlias() {
+		XCTAssertEqual(MarketSession(tradingViewValue: "market"), .regular)
+	}
+
+	func testQuoteUsesRegularLastPriceDuringRegularSession() {
+		let quote = TradingViewQuote(
+			lastPrice: 115.37,
+			change: 1.72,
+			changePercent: 1.51,
+			preMarketPrice: 115.48,
+			postMarketPrice: 115.37,
+			session: .regular
+		)
+
+		XCTAssertEqual(quote.effectiveLastPrice, 115.37)
+		XCTAssertEqual(quote.effectiveChange, 1.72)
+		XCTAssertEqual(quote.effectiveChangePercent, 1.51)
+	}
+
+	func testQuoteUsesPremarketPriceDuringPremarketSession() {
+		let quote = TradingViewQuote(
+			lastPrice: 113.65,
+			change: 3.57,
+			changePercent: 3.24,
+			preMarketPrice: 118.19,
+			preMarketChange: 4.54,
+			preMarketChangePercent: 3.99,
+			session: .preMarket
+		)
+
+		XCTAssertEqual(quote.effectiveLastPrice, 118.19)
+		XCTAssertEqual(quote.effectiveChange, 4.54)
+		XCTAssertEqual(quote.effectiveChangePercent, 3.99)
+	}
+
+	func testQuoteUsesPostmarketPriceDuringPostmarketSession() {
+		let quote = TradingViewQuote(
+			lastPrice: 113.65,
+			change: 3.57,
+			changePercent: 3.24,
+			postMarketPrice: 117.81,
+			postMarketChange: 4.16,
+			postMarketChangePercent: 3.66,
+			session: .postMarket
+		)
+
+		XCTAssertEqual(quote.effectiveLastPrice, 117.81)
+		XCTAssertEqual(quote.effectiveChange, 4.16)
+		XCTAssertEqual(quote.effectiveChangePercent, 3.66)
+	}
+
+	func testMergedPremarketQuoteUsesExtendedPrice() {
+		let baseQuote = TradingViewQuote(
+			lastPrice: 113.65,
+			change: 3.57,
+			changePercent: 3.24,
+			session: .preMarket
+		)
+		let extendedQuote = TradingViewQuote(
+			preMarketPrice: 118.19,
+			preMarketChange: 4.54,
+			preMarketChangePercent: 3.99
+		)
+
+		let mergedQuote = baseQuote.merging(extendedQuote)
+
+		XCTAssertEqual(mergedQuote.effectiveLastPrice, 118.19)
+		XCTAssertEqual(mergedQuote.effectiveChange, 4.54)
+		XCTAssertEqual(mergedQuote.effectiveChangePercent, 3.99)
+		XCTAssertEqual(mergedQuote.lastPrice, 113.65)
 	}
 
 	func testSnapshotPrefersLiveQuoteForDisplayedPrice() {

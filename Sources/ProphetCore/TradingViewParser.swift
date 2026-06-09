@@ -18,6 +18,12 @@ private let quoteShortNameKey = "short_name"
 private let quoteDescriptionKey = "description"
 private let quoteExchangeKey = "exchange"
 private let quoteTimezoneKey = "timezone"
+private let quotePremarketPriceKey = "premarket_close"
+private let quotePremarketChangeKey = "premarket_change"
+private let quotePremarketChangePercentKey = "premarket_change_percent"
+private let quotePostmarketPriceKey = "postmarket_close"
+private let quotePostmarketChangeKey = "postmarket_change"
+private let quotePostmarketChangePercentKey = "postmarket_change_percent"
 private let seriesValuesKey = "s"
 private let barValuesKey = "v"
 private let minimumBarFieldCount = 5
@@ -36,6 +42,12 @@ public struct TradingViewQuote: Equatable {
 	public var lastPrice: Double?
 	public var change: Double?
 	public var changePercent: Double?
+	public var preMarketPrice: Double?
+	public var preMarketChange: Double?
+	public var preMarketChangePercent: Double?
+	public var postMarketPrice: Double?
+	public var postMarketChange: Double?
+	public var postMarketChangePercent: Double?
 	public var session: MarketSession
 	public var lastTradeTime: Date?
 	public var currencyCode: String?
@@ -49,6 +61,12 @@ public struct TradingViewQuote: Equatable {
 		lastPrice: Double? = nil,
 		change: Double? = nil,
 		changePercent: Double? = nil,
+		preMarketPrice: Double? = nil,
+		preMarketChange: Double? = nil,
+		preMarketChangePercent: Double? = nil,
+		postMarketPrice: Double? = nil,
+		postMarketChange: Double? = nil,
+		postMarketChangePercent: Double? = nil,
 		session: MarketSession = .unknown,
 		lastTradeTime: Date? = nil,
 		currencyCode: String? = nil,
@@ -61,6 +79,12 @@ public struct TradingViewQuote: Equatable {
 		self.lastPrice = lastPrice
 		self.change = change
 		self.changePercent = changePercent
+		self.preMarketPrice = preMarketPrice
+		self.preMarketChange = preMarketChange
+		self.preMarketChangePercent = preMarketChangePercent
+		self.postMarketPrice = postMarketPrice
+		self.postMarketChange = postMarketChange
+		self.postMarketChangePercent = postMarketChangePercent
 		self.session = session
 		self.lastTradeTime = lastTradeTime
 		self.currencyCode = currencyCode
@@ -76,11 +100,56 @@ public struct TradingViewQuote: Equatable {
 			lastPrice: quote.lastPrice ?? lastPrice,
 			change: quote.change ?? change,
 			changePercent: quote.changePercent ?? changePercent,
+			preMarketPrice: quote.preMarketPrice ?? preMarketPrice,
+			preMarketChange: quote.preMarketChange ?? preMarketChange,
+			preMarketChangePercent: quote.preMarketChangePercent ?? preMarketChangePercent,
+			postMarketPrice: quote.postMarketPrice ?? postMarketPrice,
+			postMarketChange: quote.postMarketChange ?? postMarketChange,
+			postMarketChangePercent: quote.postMarketChangePercent ?? postMarketChangePercent,
 			session: quote.session == .unknown ? session : quote.session,
 			lastTradeTime: quote.lastTradeTime ?? lastTradeTime,
 			currencyCode: quote.currencyCode ?? currencyCode,
 			timeZoneIdentifier: quote.timeZoneIdentifier ?? timeZoneIdentifier
 		)
+	}
+
+	public var effectiveLastPrice: Double? {
+		switch session {
+		case .preMarket:
+			return preMarketPrice ?? lastPrice
+		case .postMarket, .extended:
+			return postMarketPrice ?? preMarketPrice ?? lastPrice
+		case .regular:
+			return lastPrice
+		case .closed, .unknown:
+			return postMarketPrice ?? preMarketPrice ?? lastPrice
+		}
+	}
+
+	public var effectiveChange: Double? {
+		switch session {
+		case .preMarket:
+			return preMarketChange ?? change
+		case .postMarket, .extended:
+			return postMarketChange ?? preMarketChange ?? change
+		case .regular:
+			return change
+		case .closed, .unknown:
+			return postMarketChange ?? preMarketChange ?? change
+		}
+	}
+
+	public var effectiveChangePercent: Double? {
+		switch session {
+		case .preMarket:
+			return preMarketChangePercent ?? changePercent
+		case .postMarket, .extended:
+			return postMarketChangePercent ?? preMarketChangePercent ?? changePercent
+		case .regular:
+			return changePercent
+		case .closed, .unknown:
+			return postMarketChangePercent ?? preMarketChangePercent ?? changePercent
+		}
 	}
 }
 
@@ -123,6 +192,12 @@ public enum TradingViewParser {
 			lastPrice: doubleValue(values[quoteLastPriceKey]),
 			change: doubleValue(values[quoteChangeKey]),
 			changePercent: doubleValue(values[quoteChangePercentKey]),
+			preMarketPrice: doubleValue(values[quotePremarketPriceKey]),
+			preMarketChange: doubleValue(values[quotePremarketChangeKey]),
+			preMarketChangePercent: doubleValue(values[quotePremarketChangePercentKey]),
+			postMarketPrice: doubleValue(values[quotePostmarketPriceKey]),
+			postMarketChange: doubleValue(values[quotePostmarketChangeKey]),
+			postMarketChangePercent: doubleValue(values[quotePostmarketChangePercentKey]),
 			session: MarketSession(tradingViewValue: values[quoteSessionKey] as? String),
 			lastTradeTime: lastPriceTime,
 			currencyCode: values[quoteCurrencyCodeKey] as? String,

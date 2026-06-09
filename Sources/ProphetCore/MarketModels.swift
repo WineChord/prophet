@@ -63,11 +63,11 @@ public enum MarketSession: String, Equatable {
 
 	public init(tradingViewValue: String?) {
 		switch tradingViewValue {
-		case "regular":
+		case "market", "regular":
 			self = .regular
-		case "pre_market":
+		case "pre_market", "premarket", "pre-market":
 			self = .preMarket
-		case "post_market":
+		case "post_market", "postmarket", "post-market":
 			self = .postMarket
 		case "extended":
 			self = .extended

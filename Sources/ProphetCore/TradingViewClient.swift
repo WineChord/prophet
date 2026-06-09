@@ -183,7 +183,7 @@ public final class TradingViewClient: MarketDataFetching {
 					throw TradingViewError.server(serverError)
 				}
 				if let nextQuote = TradingViewParser.quote(from: frame) {
-					quote = nextQuote
+					quote = quote.merging(nextQuote)
 					continue
 				}
 				let nextBars = TradingViewParser.bars(from: frame)
@@ -355,9 +355,9 @@ public final class TradingViewClient: MarketDataFetching {
 		return MarketSnapshot(
 			instrument: mergedInstrument,
 			bars: overviewBars,
-			lastPrice: quote.lastPrice,
-			change: quote.change,
-			changePercent: quote.changePercent,
+			lastPrice: quote.effectiveLastPrice,
+			change: quote.effectiveChange,
+			changePercent: quote.effectiveChangePercent,
 			session: quote.session,
 			lastTradeTime: quote.lastTradeTime,
 			currencyCode: quote.currencyCode ?? ProphetDefaults.currencyCode,

@@ -171,7 +171,8 @@ private actor QuoteIntervalRecorder {
 		}
 		previousAt = now
 
-		if let price = quote.lastPrice, price != previousPrice {
+		let price = quote.effectiveLastPrice
+		if let price, price != previousPrice {
 			priceChangeCount += 1
 			previousPrice = price
 		}
@@ -181,7 +182,7 @@ private actor QuoteIntervalRecorder {
 				"quote",
 				String(updateCount),
 				"interval=\(interval.map(formatSeconds) ?? initialIntervalText)",
-				"price=\(quote.lastPrice.map(formatPrice) ?? unavailableIntervalText)",
+				"price=\(price.map(formatPrice) ?? unavailableIntervalText)",
 				"session=\(quote.session.displayName)",
 			].joined(separator: " ")
 		)
@@ -710,9 +711,9 @@ private extension MarketSnapshot {
 		MarketSnapshot(
 			instrument: instrument.applying(quote: quote),
 			bars: bars,
-			lastPrice: quote.lastPrice ?? lastPrice,
-			change: quote.change ?? change,
-			changePercent: quote.changePercent ?? changePercent,
+			lastPrice: quote.effectiveLastPrice ?? lastPrice,
+			change: quote.effectiveChange ?? change,
+			changePercent: quote.effectiveChangePercent ?? changePercent,
 			session: quote.session == .unknown ? session : quote.session,
 			lastTradeTime: quote.lastTradeTime ?? lastTradeTime,
 			receivedAt: Date(),
