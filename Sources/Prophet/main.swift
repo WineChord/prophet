@@ -13,10 +13,6 @@ private let emptyKeyEquivalent = ""
 private let quitKeyEquivalent = "q"
 private let tooltipUnavailablePrice = "Price unavailable"
 private let tradingViewChartURLPrefix = "https://www.tradingview.com/chart/?symbol="
-private let priceFormatterMinimumFractionDigits = 2
-private let priceFormatterMaximumFractionDigits = 4
-private let percentFormatterMinimumFractionDigits = 2
-private let percentFormatterMaximumFractionDigits = 2
 
 private var retainedDelegate: ProphetAppDelegate?
 
@@ -62,6 +58,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private let configuration = AppConfiguration.load()
 	private let client: MarketDataFetching = TradingViewClient()
 	private let renderer = SparklineRenderer()
+	private let snapshotFormatter = MarketSnapshotFormatter()
 	private let statusItem: NSStatusItem
 	private let priceItem = NSMenuItem(
 		title: menuPricePlaceholder,
@@ -73,8 +70,6 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		action: nil,
 		keyEquivalent: emptyKeyEquivalent
 	)
-	private let priceFormatter = NumberFormatter()
-	private let percentFormatter = NumberFormatter()
 	private var timer: Timer?
 	private var refreshTask: Task<Void, Never>?
 	private var latestSnapshot: MarketSnapshot?
@@ -83,7 +78,6 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	override init() {
 		statusItem = NSStatusBar.system.statusItem(withLength: AppConfiguration.load().statusItemWidth)
 		super.init()
-		configureFormatters()
 	}
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
@@ -168,18 +162,6 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		statusItem.menu = menu
 	}
 
-	private func configureFormatters() {
-		priceFormatter.numberStyle = .currency
-		priceFormatter.minimumFractionDigits = priceFormatterMinimumFractionDigits
-		priceFormatter.maximumFractionDigits = priceFormatterMaximumFractionDigits
-
-		percentFormatter.numberStyle = .decimal
-		percentFormatter.minimumFractionDigits = percentFormatterMinimumFractionDigits
-		percentFormatter.maximumFractionDigits = percentFormatterMaximumFractionDigits
-		percentFormatter.positivePrefix = "+"
-		percentFormatter.negativePrefix = "-"
-	}
-
 	private func refresh() {
 		refreshTask?.cancel()
 		let requestedSymbol = configuration.requestedSymbol
@@ -244,19 +226,9 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	}
 
 	private func tooltipText(for snapshot: MarketSnapshot) -> String {
-		guard let price = snapshot.effectiveLastPrice else {
-			return "\(snapshot.instrument.displaySymbol) \(tooltipUnavailablePrice)"
-		}
-
-		priceFormatter.currencyCode = snapshot.currencyCode
-		let formattedPrice = priceFormatter.string(from: NSNumber(value: price)) ?? String(price)
-		let formattedPercent = snapshot.effectiveChangePercent.flatMap {
-			percentFormatter.string(from: NSNumber(value: abs($0)))
-		}
-		if let formattedPercent {
-			let sign = (snapshot.effectiveChangePercent ?? 0) >= 0 ? "+" : "-"
-			return "\(snapshot.instrument.displaySymbol) \(formattedPrice) \(sign)\(formattedPercent)%"
-		}
-		return "\(snapshot.instrument.displaySymbol) \(formattedPrice)"
+		snapshotFormatter.tooltipText(
+			for: snapshot,
+			unavailablePriceText: tooltipUnavailablePrice
+		)
 	}
 }
