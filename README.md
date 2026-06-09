@@ -17,9 +17,7 @@ extended-hours segments.
 
 ## Default Symbol
 
-The default symbol is `NASDAQ:RKLB` for Rocket Lab. The originally requested raw
-spelling `RLKB` does not currently resolve as a U.S. listing in TradingView, so
-the shippable default uses the valid Rocket Lab ticker.
+The default symbol is `NASDAQ:RKLB` for Rocket Lab.
 
 To change the symbol, create:
 
