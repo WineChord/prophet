@@ -11,7 +11,7 @@ from the data source.
 
 The visible curve follows TradingView's overview chart behavior: it starts at the
 most recent regular-session open, keeps the real timestamp spacing between bars,
-compresses long no-trade gaps into compact break markers, uses TradingView
+compresses long no-trade gaps into compact single-slash break markers, uses TradingView
 green/red for the regular session, and uses a TradingView-style gray line for
 extended-hours segments.
 

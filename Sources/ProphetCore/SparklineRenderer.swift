@@ -7,9 +7,8 @@ private let sparklineLineWidth = 1.35
 private let regularFillAlpha = 0.11
 private let extendedLineAlpha = 0.75
 private let breakMarkerAlpha = 0.82
-private let breakMarkerHeight = 8.0
-private let breakMarkerLean = 2.2
-private let breakMarkerSpacing = 2.6
+private let breakMarkerHeight = 9.0
+private let breakMarkerLean = 3.0
 private let breakMarkerLineWidth = 1.05
 private let loadingLineWidth = 1.0
 private let loadingLineAlpha = 0.45
@@ -131,11 +130,8 @@ public struct SparklineRenderer {
 
 	private func drawBreakMarker(_ timelineBreak: TimelineBreak, size: NSSize) {
 		let centerY = size.height / 2
-		let leftX = timelineBreak.midX - breakMarkerSpacing / 2
-		let rightX = timelineBreak.midX + breakMarkerSpacing / 2
 		let color = tradingViewGray.withAlphaComponent(breakMarkerAlpha)
-		drawSlash(centerX: leftX, centerY: centerY, color: color)
-		drawSlash(centerX: rightX, centerY: centerY, color: color)
+		drawSlash(centerX: timelineBreak.midX, centerY: centerY, color: color)
 	}
 
 	private func drawSlash(centerX: CGFloat, centerY: CGFloat, color: NSColor) {
