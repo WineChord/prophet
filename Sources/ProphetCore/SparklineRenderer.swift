@@ -6,6 +6,11 @@ private let sparklinePadding = 2.0
 private let sparklineLineWidth = 1.35
 private let regularFillAlpha = 0.11
 private let extendedLineAlpha = 0.75
+private let breakMarkerAlpha = 0.82
+private let breakMarkerHeight = 8.0
+private let breakMarkerLean = 2.2
+private let breakMarkerSpacing = 2.6
+private let breakMarkerLineWidth = 1.05
 private let loadingLineWidth = 1.0
 private let loadingLineAlpha = 0.45
 private let tradingViewGreen = NSColor(
@@ -58,16 +63,18 @@ public struct SparklineRenderer {
 	}
 
 	private func drawSparkline(snapshot: MarketSnapshot, size: NSSize) {
-		let points = TimelineGeometry.points(
+		let timeline = MarketTimeline(timeZoneIdentifier: snapshot.timeZoneIdentifier)
+		let layout = TimelineGeometry.layout(
 			for: snapshot.bars,
 			in: CGSize(width: size.width, height: size.height),
-			padding: sparklinePadding
+			padding: sparklinePadding,
+			timeline: timeline
 		)
+		let points = layout.points
 		guard points.count > 1 else {
 			return
 		}
 
-		let timeline = MarketTimeline(timeZoneIdentifier: snapshot.timeZoneIdentifier)
 		for index in 1..<points.count {
 			let leftBar = snapshot.bars[index - 1]
 			let rightBar = snapshot.bars[index]
@@ -88,6 +95,10 @@ public struct SparklineRenderer {
 				)
 			}
 			drawLine(from: points[index - 1], to: points[index], color: color)
+		}
+
+		for timelineBreak in layout.breaks {
+			drawBreakMarker(timelineBreak, size: size)
 		}
 	}
 
@@ -116,6 +127,35 @@ public struct SparklineRenderer {
 		path.close()
 		color.withAlphaComponent(regularFillAlpha).setFill()
 		path.fill()
+	}
+
+	private func drawBreakMarker(_ timelineBreak: TimelineBreak, size: NSSize) {
+		let centerY = size.height / 2
+		let leftX = timelineBreak.midX - breakMarkerSpacing / 2
+		let rightX = timelineBreak.midX + breakMarkerSpacing / 2
+		let color = tradingViewGray.withAlphaComponent(breakMarkerAlpha)
+		drawSlash(centerX: leftX, centerY: centerY, color: color)
+		drawSlash(centerX: rightX, centerY: centerY, color: color)
+	}
+
+	private func drawSlash(centerX: CGFloat, centerY: CGFloat, color: NSColor) {
+		let path = NSBezierPath()
+		path.move(
+			to: NSPoint(
+				x: centerX - breakMarkerLean / 2,
+				y: centerY - breakMarkerHeight / 2
+			)
+		)
+		path.line(
+			to: NSPoint(
+				x: centerX + breakMarkerLean / 2,
+				y: centerY + breakMarkerHeight / 2
+			)
+		)
+		path.lineWidth = breakMarkerLineWidth
+		path.lineCapStyle = .round
+		color.setStroke()
+		path.stroke()
 	}
 
 	private func drawLoadingLine(size: NSSize, hasError: Bool) {

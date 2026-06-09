@@ -7,6 +7,8 @@ private let weekdayMonday = 2
 private let weekdayFriday = 6
 private let minimumTimelineRange: TimeInterval = 60
 private let maximumContinuousGap: TimeInterval = 20 * 60
+private let compressedGapWidth = 7.0
+private let maximumBreakWidthShare = 0.35
 
 public enum BarTradingSession: Equatable {
 	case regular
@@ -93,36 +95,162 @@ public struct MarketTimeline {
 }
 
 public enum TimelineGeometry {
-	public static func points(
+	public static func layout(
 		for bars: [PriceBar],
 		in size: CGSize,
-		padding: CGFloat
-	) -> [CGPoint] {
+		padding: CGFloat,
+		timeline: MarketTimeline = MarketTimeline()
+	) -> TimelineLayout {
 		guard !bars.isEmpty, size.width > 0, size.height > 0 else {
-			return []
+			return TimelineLayout(points: [], breaks: [])
 		}
+
+		let drawableWidth = max(size.width - padding * 2, 0)
+		let drawableHeight = max(size.height - padding * 2, 0)
+		let breakCount = gapCount(in: bars, timeline: timeline)
+		let breakWidth = compressedBreakWidth(
+			drawableWidth: drawableWidth,
+			breakCount: breakCount
+		)
+		let continuousWidth = max(drawableWidth - breakWidth * CGFloat(breakCount), 0)
+		let continuousDuration = max(
+			connectableDuration(in: bars, timeline: timeline),
+			minimumTimelineRange
+		)
+		let durationScale = continuousWidth / CGFloat(continuousDuration)
 
 		let values = bars.map(\.close)
 		let minimumValue = values.min() ?? 0
 		let maximumValue = values.max() ?? 0
 		let valueRange = maximumValue - minimumValue
-		let startTimestamp = bars.first?.timestamp ?? 0
-		let endTimestamp = bars.last?.timestamp ?? startTimestamp
-		let timeRange = max(endTimestamp - startTimestamp, minimumTimelineRange)
-		let drawableWidth = max(size.width - padding * 2, 0)
-		let drawableHeight = max(size.height - padding * 2, 0)
+		var points = [
+			point(
+				for: bars[0],
+				xPosition: padding,
+				minimumValue: minimumValue,
+				valueRange: valueRange,
+				drawableHeight: drawableHeight,
+				padding: padding
+			),
+		]
+		var breaks: [TimelineBreak] = []
+		var xPosition = padding
 
-		return bars.map { bar in
-			let xRatio = CGFloat((bar.timestamp - startTimestamp) / timeRange)
-			let xPosition = padding + drawableWidth * xRatio
-			let normalizedValue: Double
-			if valueRange == 0 {
-				normalizedValue = flatLinePosition
+		for index in 1..<bars.count {
+			let leftBar = bars[index - 1]
+			let rightBar = bars[index]
+			let gapDuration = max(rightBar.timestamp - leftBar.timestamp, 0)
+			if timeline.canConnect(leftBar, rightBar) {
+				xPosition += CGFloat(gapDuration) * durationScale
 			} else {
-				normalizedValue = (bar.close - minimumValue) / valueRange
+				let startX = xPosition
+				xPosition += breakWidth
+				breaks.append(
+					TimelineBreak(
+						leftIndex: index - 1,
+						rightIndex: index,
+						startX: startX,
+						endX: xPosition
+					)
+				)
 			}
-			let yPosition = padding + drawableHeight * CGFloat(normalizedValue)
-			return CGPoint(x: xPosition, y: yPosition)
+			points.append(
+				point(
+					for: rightBar,
+					xPosition: xPosition,
+					minimumValue: minimumValue,
+					valueRange: valueRange,
+					drawableHeight: drawableHeight,
+					padding: padding
+				)
+			)
 		}
+
+		return TimelineLayout(points: points, breaks: breaks)
 	}
+
+	public static func points(
+		for bars: [PriceBar],
+		in size: CGSize,
+		padding: CGFloat
+	) -> [CGPoint] {
+		layout(for: bars, in: size, padding: padding).points
+	}
+}
+
+public struct TimelineLayout: Equatable {
+	public let points: [CGPoint]
+	public let breaks: [TimelineBreak]
+}
+
+public struct TimelineBreak: Equatable {
+	public let leftIndex: Int
+	public let rightIndex: Int
+	public let startX: CGFloat
+	public let endX: CGFloat
+
+	public var midX: CGFloat {
+		(startX + endX) / 2
+	}
+}
+
+private func gapCount(
+	in bars: [PriceBar],
+	timeline: MarketTimeline
+) -> Int {
+	guard bars.count > 1 else {
+		return 0
+	}
+
+	return (1..<bars.count).reduce(0) { count, index in
+		timeline.canConnect(bars[index - 1], bars[index]) ? count : count + 1
+	}
+}
+
+private func compressedBreakWidth(
+	drawableWidth: CGFloat,
+	breakCount: Int
+) -> CGFloat {
+	guard breakCount > 0 else {
+		return 0
+	}
+	let maximumTotalWidth = drawableWidth * maximumBreakWidthShare
+	let maximumSingleWidth = maximumTotalWidth / CGFloat(breakCount)
+	return min(compressedGapWidth, maximumSingleWidth)
+}
+
+private func connectableDuration(
+	in bars: [PriceBar],
+	timeline: MarketTimeline
+) -> TimeInterval {
+	guard bars.count > 1 else {
+		return minimumTimelineRange
+	}
+
+	return (1..<bars.count).reduce(0) { duration, index in
+		let leftBar = bars[index - 1]
+		let rightBar = bars[index]
+		guard timeline.canConnect(leftBar, rightBar) else {
+			return duration
+		}
+		return duration + max(rightBar.timestamp - leftBar.timestamp, 0)
+	}
+}
+
+private func point(
+	for bar: PriceBar,
+	xPosition: CGFloat,
+	minimumValue: Double,
+	valueRange: Double,
+	drawableHeight: CGFloat,
+	padding: CGFloat
+) -> CGPoint {
+	let normalizedValue: Double
+	if valueRange == 0 {
+		normalizedValue = flatLinePosition
+	} else {
+		normalizedValue = (bar.close - minimumValue) / valueRange
+	}
+	let yPosition = padding + drawableHeight * CGFloat(normalizedValue)
+	return CGPoint(x: xPosition, y: yPosition)
 }
