@@ -9,15 +9,47 @@ private let menuPricePlaceholder = "Loading..."
 private let refreshTitle = "Refresh"
 private let openTradingViewTitle = "Open in TradingView"
 private let alwaysShowPriceTitle = "Always Show Price"
+private let priceLabelSizeTitle = "Price Label Size"
 private let quitTitle = "Quit Prophet"
 private let emptyKeyEquivalent = ""
 private let quitKeyEquivalent = "q"
 private let tooltipUnavailablePrice = "Price unavailable"
 private let tradingViewChartURLPrefix = "https://www.tradingview.com/chart/?symbol="
 private let alwaysShowPriceUserDefaultsKey = "alwaysShowPrice"
+private let priceLabelSizeUserDefaultsKey = "priceLabelSize"
 private let hoverPollInterval: TimeInterval = 0.08
 
 private var retainedDelegate: ProphetAppDelegate?
+
+private enum PriceLabelSize: String, CaseIterable {
+	case compact
+	case regular
+	case large
+
+	static let defaultSize = PriceLabelSize.regular
+
+	var title: String {
+		switch self {
+		case .compact:
+			return "Compact"
+		case .regular:
+			return "Regular"
+		case .large:
+			return "Large"
+		}
+	}
+
+	var fontSize: Double {
+		switch self {
+		case .compact:
+			return 9.0
+		case .regular:
+			return ProphetDefaults.priceLabelFontSize
+		case .large:
+			return 12.0
+		}
+	}
+}
 
 @main
 enum ProphetMain {
@@ -78,6 +110,13 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		action: #selector(toggleAlwaysShowPrice),
 		keyEquivalent: emptyKeyEquivalent
 	)
+	private let priceLabelSizeItem = NSMenuItem(
+		title: priceLabelSizeTitle,
+		action: nil,
+		keyEquivalent: emptyKeyEquivalent
+	)
+	private let priceLabelSizeMenu = NSMenu()
+	private var priceLabelSizeItems: [NSMenuItem] = []
 	private var timer: Timer?
 	private var hoverPollTimer: Timer?
 	private var refreshTask: Task<Void, Never>?
@@ -87,6 +126,11 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private var alwaysShowPrice = UserDefaults.standard.bool(
 		forKey: alwaysShowPriceUserDefaultsKey
 	)
+	private var priceLabelSize = PriceLabelSize(
+		rawValue: UserDefaults.standard.string(
+			forKey: priceLabelSizeUserDefaultsKey
+		) ?? emptyKeyEquivalent
+	) ?? PriceLabelSize.defaultSize
 
 	override init() {
 		statusItem = NSStatusBar.system.statusItem(
@@ -142,6 +186,18 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		updateMenu()
 	}
 
+	@objc private func selectPriceLabelSize(_ sender: NSMenuItem) {
+		guard let rawValue = sender.representedObject as? String,
+		      let size = PriceLabelSize(rawValue: rawValue) else {
+			return
+		}
+
+		priceLabelSize = size
+		UserDefaults.standard.set(size.rawValue, forKey: priceLabelSizeUserDefaultsKey)
+		renderStatusItem()
+		updateMenu()
+	}
+
 	@objc private func quit() {
 		NSApplication.shared.terminate(nil)
 	}
@@ -175,6 +231,8 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		)
 		alwaysShowPriceItem.target = self
 		menu.addItem(alwaysShowPriceItem)
+		configurePriceLabelSizeMenu()
+		menu.addItem(priceLabelSizeItem)
 		menu.addItem(.separator())
 		menu.addItem(
 			NSMenuItem(
@@ -184,6 +242,21 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			)
 		)
 		statusItem.menu = menu
+	}
+
+	private func configurePriceLabelSizeMenu() {
+		priceLabelSizeItems = PriceLabelSize.allCases.map { size in
+			let item = NSMenuItem(
+				title: size.title,
+				action: #selector(selectPriceLabelSize(_:)),
+				keyEquivalent: emptyKeyEquivalent
+			)
+			item.target = self
+			item.representedObject = size.rawValue
+			priceLabelSizeMenu.addItem(item)
+			return item
+		}
+		priceLabelSizeItem.submenu = priceLabelSizeMenu
 	}
 
 	private func refresh() {
@@ -228,18 +301,26 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		if let snapshot = latestSnapshot {
 			priceItem.title = tooltipText(for: snapshot)
 			sessionItem.title = "\(snapshot.session.displayName) • \(snapshot.instrument.symbol)"
-			alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
+			updatePreferenceMenuItems()
 			return
 		}
 		if let latestError {
 			priceItem.title = latestError.localizedDescription
 			sessionItem.title = configuration.requestedSymbol
-			alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
+			updatePreferenceMenuItems()
 			return
 		}
 		priceItem.title = menuPricePlaceholder
 		sessionItem.title = configuration.requestedSymbol
+		updatePreferenceMenuItems()
+	}
+
+	private func updatePreferenceMenuItems() {
 		alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
+		for item in priceLabelSizeItems {
+			let rawValue = item.representedObject as? String
+			item.state = rawValue == priceLabelSize.rawValue ? .on : .off
+		}
 	}
 
 	private func tooltipText(for snapshot: MarketSnapshot) -> String {
@@ -288,7 +369,8 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			error: latestError,
 			width: width,
 			height: ProphetDefaults.sparklineHeight,
-			showsPrice: shouldShowInlinePrice()
+			showsPrice: shouldShowInlinePrice(),
+			priceLabelFontSize: priceLabelSize.fontSize
 		)
 	}
 

@@ -8,6 +8,7 @@ public enum ProphetDefaults {
 	public static let compactStatusItemWidth = 72.0
 	public static let statusItemWidth = compactStatusItemWidth
 	public static let sparklineHeight = 18.0
+	public static let priceLabelFontSize = 10.5
 	public static let currencyCode = "USD"
 	public static let exchangeTimeZoneIdentifier = "America/New_York"
 }

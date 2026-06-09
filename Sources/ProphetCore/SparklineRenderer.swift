@@ -10,7 +10,6 @@ private let breakMarkerAlpha = 0.82
 private let breakMarkerHeight = 5.5
 private let breakMarkerLean = 2.0
 private let breakMarkerLineWidth = 0.95
-private let priceTextFontSize = 9.0
 private let minimumPriceTextFontSize = 7.0
 private let priceTextHorizontalPadding = 2.0
 private let priceBadgeHorizontalPadding = 3.0
@@ -51,7 +50,8 @@ public struct SparklineRenderer {
 		error: Error?,
 		width: Double,
 		height: Double = ProphetDefaults.sparklineHeight,
-		showsPrice: Bool = false
+		showsPrice: Bool = false,
+		priceLabelFontSize: Double = ProphetDefaults.priceLabelFontSize
 	) -> NSImage {
 		let size = NSSize(width: width, height: height)
 		let image = NSImage(size: size)
@@ -64,7 +64,12 @@ public struct SparklineRenderer {
 		NSRect(origin: .zero, size: size).fill()
 
 		if let snapshot, snapshot.bars.count > 1 {
-			drawSparkline(snapshot: snapshot, size: size, showsPrice: showsPrice)
+			drawSparkline(
+				snapshot: snapshot,
+				size: size,
+				showsPrice: showsPrice,
+				priceLabelFontSize: priceLabelFontSize
+			)
 			image.isTemplate = false
 			return image
 		}
@@ -77,9 +82,19 @@ public struct SparklineRenderer {
 	private func drawSparkline(
 		snapshot: MarketSnapshot,
 		size: NSSize,
-		showsPrice: Bool
+		showsPrice: Bool,
+		priceLabelFontSize: Double
 	) {
-		let priceTextLayout = showsPrice ? priceTextLayout(for: snapshot, size: size) : nil
+		let priceTextLayout: PriceTextLayout?
+		if showsPrice {
+			priceTextLayout = makePriceTextLayout(
+				for: snapshot,
+				size: size,
+				priceLabelFontSize: priceLabelFontSize
+			)
+		} else {
+			priceTextLayout = nil
+		}
 		let timeline = MarketTimeline(timeZoneIdentifier: snapshot.timeZoneIdentifier)
 		let layout = TimelineGeometry.layout(
 			for: snapshot.bars,
@@ -175,15 +190,20 @@ public struct SparklineRenderer {
 		path.stroke()
 	}
 
-	private func priceTextLayout(
+	private func makePriceTextLayout(
 		for snapshot: MarketSnapshot,
-		size: NSSize
+		size: NSSize,
+		priceLabelFontSize: Double
 	) -> PriceTextLayout? {
 		guard let text = snapshotFormatter.statusPriceText(for: snapshot) else {
 			return nil
 		}
 
-		let font = priceTextFont(for: text, size: size)
+		let font = priceTextFont(
+			for: text,
+			size: size,
+			priceLabelFontSize: priceLabelFontSize
+		)
 		let attributes: [NSAttributedString.Key: Any] = [.font: font]
 		let textSize = NSString(string: text).size(withAttributes: attributes)
 		let badgeSize = NSSize(
@@ -244,12 +264,16 @@ public struct SparklineRenderer {
 		path.stroke()
 	}
 
-	private func priceTextFont(for text: String, size: NSSize) -> NSFont {
+	private func priceTextFont(
+		for text: String,
+		size: NSSize,
+		priceLabelFontSize: Double
+	) -> NSFont {
 		let maximumTextWidth = max(
 			size.width - (priceBadgeHorizontalPadding + priceTextHorizontalPadding) * 2,
 			1
 		)
-		var fontSize = priceTextFontSize
+		var fontSize = max(priceLabelFontSize, minimumPriceTextFontSize)
 		while fontSize > minimumPriceTextFontSize {
 			let font = NSFont.monospacedDigitSystemFont(
 				ofSize: fontSize,
