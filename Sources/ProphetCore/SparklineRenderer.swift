@@ -10,12 +10,16 @@ private let breakMarkerAlpha = 0.82
 private let breakMarkerHeight = 5.5
 private let breakMarkerLean = 2.0
 private let breakMarkerLineWidth = 0.95
-private let priceTextFontSize = 8.5
-private let minimumPriceTextFontSize = 6.5
+private let priceTextFontSize = 9.0
+private let minimumPriceTextFontSize = 7.0
 private let priceTextHorizontalPadding = 2.0
-private let priceTextAlpha = 0.96
-private let priceTextShadowBlur = 1.4
-private let priceTextShadowAlpha = 0.82
+private let priceBadgeHorizontalPadding = 3.0
+private let priceBadgeVerticalPadding = 1.0
+private let minimumPriceBadgeHeight = 12.0
+private let priceBadgeCornerRadius = 3.0
+private let priceBadgeAlpha = 0.94
+private let priceBadgeBorderAlpha = 0.28
+private let priceTextAlpha = 0.98
 private let loadingLineWidth = 1.0
 private let loadingLineAlpha = 0.45
 private let tradingViewGreen = NSColor(
@@ -182,14 +186,31 @@ public struct SparklineRenderer {
 		let font = priceTextFont(for: text, size: size)
 		let attributes: [NSAttributedString.Key: Any] = [.font: font]
 		let textSize = NSString(string: text).size(withAttributes: attributes)
-		let originX = centeredOrigin(
-			contentLength: textSize.width,
-			containerLength: size.width
+		let badgeSize = NSSize(
+			width: min(textSize.width + priceBadgeHorizontalPadding * 2, size.width),
+			height: min(
+				max(textSize.height + priceBadgeVerticalPadding * 2, minimumPriceBadgeHeight),
+				size.height
+			)
 		)
-		let originY = max((size.height - textSize.height) / 2, 0)
+		let badgeOrigin = NSPoint(
+			x: centeredOrigin(contentLength: badgeSize.width, containerLength: size.width),
+			y: centeredOrigin(contentLength: badgeSize.height, containerLength: size.height)
+		)
+		let textOrigin = NSPoint(
+			x: badgeOrigin.x + centeredOrigin(
+				contentLength: textSize.width,
+				containerLength: badgeSize.width
+			),
+			y: badgeOrigin.y + centeredOrigin(
+				contentLength: textSize.height,
+				containerLength: badgeSize.height
+			)
+		)
 		return PriceTextLayout(
 			text: text,
-			origin: NSPoint(x: originX, y: originY),
+			textOrigin: textOrigin,
+			badgeRect: NSRect(origin: badgeOrigin, size: badgeSize),
 			font: font
 		)
 	}
@@ -198,22 +219,41 @@ public struct SparklineRenderer {
 		_ layout: PriceTextLayout,
 		snapshot: MarketSnapshot
 	) {
-		let color = priceTextColor(for: snapshot)
+		drawPriceBadge(layout, snapshot: snapshot)
+		let color = priceTextColor()
 		let attributes: [NSAttributedString.Key: Any] = [
 			.font: layout.font,
 			.foregroundColor: color,
-			.shadow: priceTextShadow(),
 		]
-		NSString(string: layout.text).draw(at: layout.origin, withAttributes: attributes)
+		NSString(string: layout.text).draw(at: layout.textOrigin, withAttributes: attributes)
+	}
+
+	private func drawPriceBadge(
+		_ layout: PriceTextLayout,
+		snapshot: MarketSnapshot
+	) {
+		let path = NSBezierPath(
+			roundedRect: layout.badgeRect,
+			xRadius: priceBadgeCornerRadius,
+			yRadius: priceBadgeCornerRadius
+		)
+		priceBadgeColor(for: snapshot).setFill()
+		path.fill()
+		NSColor.white.withAlphaComponent(priceBadgeBorderAlpha).setStroke()
+		path.lineWidth = 0.5
+		path.stroke()
 	}
 
 	private func priceTextFont(for text: String, size: NSSize) -> NSFont {
-		let maximumTextWidth = max(size.width - priceTextHorizontalPadding * 2, 1)
+		let maximumTextWidth = max(
+			size.width - (priceBadgeHorizontalPadding + priceTextHorizontalPadding) * 2,
+			1
+		)
 		var fontSize = priceTextFontSize
 		while fontSize > minimumPriceTextFontSize {
 			let font = NSFont.monospacedDigitSystemFont(
 				ofSize: fontSize,
-				weight: .semibold
+				weight: .bold
 			)
 			let textWidth = NSString(string: text).size(withAttributes: [.font: font]).width
 			if textWidth <= maximumTextWidth {
@@ -223,7 +263,7 @@ public struct SparklineRenderer {
 		}
 		return NSFont.monospacedDigitSystemFont(
 			ofSize: minimumPriceTextFontSize,
-			weight: .semibold
+			weight: .bold
 		)
 	}
 
@@ -235,14 +275,6 @@ public struct SparklineRenderer {
 			max((containerLength - contentLength) / 2, 0),
 			max(containerLength - contentLength, 0)
 		)
-	}
-
-	private func priceTextShadow() -> NSShadow {
-		let shadow = NSShadow()
-		shadow.shadowOffset = .zero
-		shadow.shadowBlurRadius = priceTextShadowBlur
-		shadow.shadowColor = NSColor.windowBackgroundColor.withAlphaComponent(priceTextShadowAlpha)
-		return shadow
 	}
 
 	private func drawLoadingLine(size: NSSize, hasError: Bool) {
@@ -271,17 +303,22 @@ public struct SparklineRenderer {
 		return isUp ? tradingViewGreen : tradingViewRed
 	}
 
-	private func priceTextColor(for snapshot: MarketSnapshot) -> NSColor {
+	private func priceBadgeColor(for snapshot: MarketSnapshot) -> NSColor {
 		guard let isUp = snapshot.isUp else {
-			return NSColor.labelColor.withAlphaComponent(priceTextAlpha)
+			return tradingViewGray.withAlphaComponent(priceBadgeAlpha)
 		}
 		let color = isUp ? tradingViewGreen : tradingViewRed
-		return color.withAlphaComponent(priceTextAlpha)
+		return color.withAlphaComponent(priceBadgeAlpha)
+	}
+
+	private func priceTextColor() -> NSColor {
+		NSColor.white.withAlphaComponent(priceTextAlpha)
 	}
 }
 
 private struct PriceTextLayout {
 	let text: String
-	let origin: NSPoint
+	let textOrigin: NSPoint
+	let badgeRect: NSRect
 	let font: NSFont
 }
