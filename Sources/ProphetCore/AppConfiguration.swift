@@ -5,7 +5,7 @@ public enum ProphetDefaults {
 	public static let requestedSymbol = "NASDAQ:RKLB"
 	public static let updateInterval: TimeInterval = 15
 	public static let barCount = 1440
-	public static let statusItemWidth = 72.0
+	public static let statusItemWidth = 108.0
 	public static let sparklineHeight = 18.0
 	public static let currencyCode = "USD"
 	public static let exchangeTimeZoneIdentifier = "America/New_York"
@@ -15,7 +15,7 @@ private let minimumUpdateInterval: TimeInterval = 5
 private let minimumBarCount = 60
 private let maximumBarCount = 3000
 private let minimumStatusItemWidth = 48.0
-private let maximumStatusItemWidth = 120.0
+private let maximumStatusItemWidth = 180.0
 private let environmentSymbolKey = "PROPHET_SYMBOL"
 private let environmentUpdateIntervalKey = "PROPHET_UPDATE_INTERVAL"
 private let environmentBarCountKey = "PROPHET_BAR_COUNT"

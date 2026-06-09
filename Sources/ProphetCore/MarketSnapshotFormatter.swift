@@ -4,10 +4,13 @@ private let priceFormatterMinimumFractionDigits = 2
 private let priceFormatterMaximumFractionDigits = 4
 private let percentFormatterMinimumFractionDigits = 2
 private let percentFormatterMaximumFractionDigits = 2
+private let statusPriceFormatterMinimumFractionDigits = 2
+private let statusPriceFormatterMaximumFractionDigits = 2
 
 public final class MarketSnapshotFormatter {
 	private let priceFormatter = NumberFormatter()
 	private let percentFormatter = NumberFormatter()
+	private let statusPriceFormatter = NumberFormatter()
 
 	public init() {
 		priceFormatter.numberStyle = .currency
@@ -17,6 +20,10 @@ public final class MarketSnapshotFormatter {
 		percentFormatter.numberStyle = .decimal
 		percentFormatter.minimumFractionDigits = percentFormatterMinimumFractionDigits
 		percentFormatter.maximumFractionDigits = percentFormatterMaximumFractionDigits
+
+		statusPriceFormatter.numberStyle = .decimal
+		statusPriceFormatter.minimumFractionDigits = statusPriceFormatterMinimumFractionDigits
+		statusPriceFormatter.maximumFractionDigits = statusPriceFormatterMaximumFractionDigits
 	}
 
 	public func tooltipText(
@@ -38,5 +45,12 @@ public final class MarketSnapshotFormatter {
 
 		let sign = changePercent >= 0 ? "+" : "-"
 		return "\(snapshot.instrument.displaySymbol) \(formattedPrice) \(sign)\(formattedPercent)%"
+	}
+
+	public func statusPriceText(for snapshot: MarketSnapshot) -> String? {
+		guard let price = snapshot.effectiveLastPrice else {
+			return nil
+		}
+		return statusPriceFormatter.string(from: NSNumber(value: price)) ?? String(price)
 	}
 }

@@ -10,6 +10,10 @@ private let breakMarkerAlpha = 0.82
 private let breakMarkerHeight = 5.5
 private let breakMarkerLean = 2.0
 private let breakMarkerLineWidth = 0.95
+private let priceTextGap = 4.0
+private let priceTextRightPadding = 1.0
+private let priceTextFontSize = 8.5
+private let priceTextAlpha = 0.96
 private let loadingLineWidth = 1.0
 private let loadingLineAlpha = 0.45
 private let tradingViewGreen = NSColor(
@@ -32,6 +36,8 @@ private let tradingViewGray = NSColor(
 )
 
 public struct SparklineRenderer {
+	private let snapshotFormatter = MarketSnapshotFormatter()
+
 	public init() {}
 
 	public func image(
@@ -62,10 +68,12 @@ public struct SparklineRenderer {
 	}
 
 	private func drawSparkline(snapshot: MarketSnapshot, size: NSSize) {
+		let priceTextLayout = priceTextLayout(for: snapshot, size: size)
+		let chartWidth = priceTextLayout?.chartWidth ?? size.width
 		let timeline = MarketTimeline(timeZoneIdentifier: snapshot.timeZoneIdentifier)
 		let layout = TimelineGeometry.layout(
 			for: snapshot.bars,
-			in: CGSize(width: size.width, height: size.height),
+			in: CGSize(width: chartWidth, height: size.height),
 			padding: sparklinePadding,
 			timeline: timeline
 		)
@@ -98,6 +106,9 @@ public struct SparklineRenderer {
 
 		for timelineBreak in layout.breaks {
 			drawBreakMarker(timelineBreak, size: size)
+		}
+		if let priceTextLayout {
+			drawPriceText(priceTextLayout, snapshot: snapshot)
 		}
 	}
 
@@ -154,6 +165,49 @@ public struct SparklineRenderer {
 		path.stroke()
 	}
 
+	private func priceTextLayout(
+		for snapshot: MarketSnapshot,
+		size: NSSize
+	) -> PriceTextLayout? {
+		guard let text = snapshotFormatter.statusPriceText(for: snapshot) else {
+			return nil
+		}
+
+		let font = NSFont.monospacedDigitSystemFont(
+			ofSize: priceTextFontSize,
+			weight: .semibold
+		)
+		let attributes: [NSAttributedString.Key: Any] = [
+			.font: font,
+		]
+		let textSize = NSString(string: text).size(withAttributes: attributes)
+		let originX = max(
+			sparklinePadding,
+			size.width - textSize.width - priceTextRightPadding
+		)
+		let chartWidth = max(originX - priceTextGap, sparklinePadding * 2)
+		let originY = max((size.height - textSize.height) / 2, 0)
+		return PriceTextLayout(
+			text: text,
+			origin: NSPoint(x: originX, y: originY),
+			size: textSize,
+			font: font,
+			chartWidth: chartWidth
+		)
+	}
+
+	private func drawPriceText(
+		_ layout: PriceTextLayout,
+		snapshot: MarketSnapshot
+	) {
+		let color = priceTextColor(for: snapshot)
+		let attributes: [NSAttributedString.Key: Any] = [
+			.font: layout.font,
+			.foregroundColor: color,
+		]
+		NSString(string: layout.text).draw(at: layout.origin, withAttributes: attributes)
+	}
+
 	private func drawLoadingLine(size: NSSize, hasError: Bool) {
 		let path = NSBezierPath()
 		let yPosition = size.height / 2
@@ -179,4 +233,20 @@ public struct SparklineRenderer {
 		}
 		return isUp ? tradingViewGreen : tradingViewRed
 	}
+
+	private func priceTextColor(for snapshot: MarketSnapshot) -> NSColor {
+		guard let isUp = snapshot.isUp else {
+			return NSColor.labelColor.withAlphaComponent(priceTextAlpha)
+		}
+		let color = isUp ? tradingViewGreen : tradingViewRed
+		return color.withAlphaComponent(priceTextAlpha)
+	}
+}
+
+private struct PriceTextLayout {
+	let text: String
+	let origin: NSPoint
+	let size: NSSize
+	let font: NSFont
+	let chartWidth: CGFloat
 }

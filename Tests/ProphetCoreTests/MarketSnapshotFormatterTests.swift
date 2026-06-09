@@ -16,6 +16,23 @@ final class MarketSnapshotFormatterTests: XCTestCase {
 		XCTAssertFalse(text.contains("-+"), text)
 	}
 
+	func testStatusPriceTextUsesCompactDecimalPrice() {
+		let snapshot = MarketSnapshot(
+			instrument: Instrument(symbol: "NASDAQ:RKLB"),
+			bars: [
+				PriceBar(
+					timestamp: 0,
+					open: 118.284,
+					high: 118.284,
+					low: 118.284,
+					close: 118.284
+				),
+			]
+		)
+
+		XCTAssertEqual(MarketSnapshotFormatter().statusPriceText(for: snapshot), "118.28")
+	}
+
 	private func formatterText(changePercent: Double) -> String {
 		let snapshot = MarketSnapshot(
 			instrument: Instrument(symbol: "NASDAQ:RKLB"),

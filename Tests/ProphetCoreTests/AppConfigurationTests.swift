@@ -9,7 +9,7 @@ final class AppConfigurationTests: XCTestCase {
 				"PROPHET_SYMBOL": "NYSE:IBM",
 				"PROPHET_UPDATE_INTERVAL": "8",
 				"PROPHET_BAR_COUNT": "120",
-				"PROPHET_STATUS_WIDTH": "90",
+				"PROPHET_STATUS_WIDTH": "96",
 			],
 			configURL: nil
 		)
@@ -17,7 +17,7 @@ final class AppConfigurationTests: XCTestCase {
 		XCTAssertEqual(configuration.requestedSymbol, "NYSE:IBM")
 		XCTAssertEqual(configuration.updateInterval, 8)
 		XCTAssertEqual(configuration.barCount, 120)
-		XCTAssertEqual(configuration.statusItemWidth, 90)
+		XCTAssertEqual(configuration.statusItemWidth, 96)
 	}
 
 	func testLoadClampsSmallValues() {
@@ -49,7 +49,7 @@ final class AppConfigurationTests: XCTestCase {
 			  "symbol": "NASDAQ:AAPL",
 			  "updateInterval": 30,
 			  "barCount": 390,
-			  "statusItemWidth": 80
+			  "statusItemWidth": 108
 			}
 			""".utf8
 		).write(to: url)
@@ -59,6 +59,6 @@ final class AppConfigurationTests: XCTestCase {
 		XCTAssertEqual(configuration.requestedSymbol, "NASDAQ:AAPL")
 		XCTAssertEqual(configuration.updateInterval, 30)
 		XCTAssertEqual(configuration.barCount, 390)
-		XCTAssertEqual(configuration.statusItemWidth, 80)
+		XCTAssertEqual(configuration.statusItemWidth, 108)
 	}
 }

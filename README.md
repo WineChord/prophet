@@ -1,8 +1,8 @@
 # Prophet
 
 Prophet is a compact macOS menu-bar sparkline for one TradingView symbol. It
-renders only the curve in the status bar and keeps the latest price in the native
-hover tooltip.
+renders the curve and latest price directly in the status bar, with the native
+hover tooltip kept as a secondary detail view.
 
 The app requests one-minute TradingView chart bars with the `extended` session
 flag, so the curve includes every extended-hours bar TradingView returns for the
@@ -26,7 +26,7 @@ To change the symbol, create:
   "symbol": "NASDAQ:AAPL",
   "updateInterval": 15,
   "barCount": 1440,
-  "statusItemWidth": 72
+  "statusItemWidth": 108
 }
 ```
 
