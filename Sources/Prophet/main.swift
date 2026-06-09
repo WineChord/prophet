@@ -15,6 +15,7 @@ private let quitKeyEquivalent = "q"
 private let tooltipUnavailablePrice = "Price unavailable"
 private let tradingViewChartURLPrefix = "https://www.tradingview.com/chart/?symbol="
 private let alwaysShowPriceUserDefaultsKey = "alwaysShowPrice"
+private let hoverPollInterval: TimeInterval = 0.08
 
 private var retainedDelegate: ProphetAppDelegate?
 
@@ -78,10 +79,10 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		keyEquivalent: emptyKeyEquivalent
 	)
 	private var timer: Timer?
+	private var hoverPollTimer: Timer?
 	private var refreshTask: Task<Void, Never>?
 	private var latestSnapshot: MarketSnapshot?
 	private var latestError: Error?
-	private var hoverTracker: StatusItemHoverTracker?
 	private var isHoveringStatusItem = false
 	private var alwaysShowPrice = UserDefaults.standard.bool(
 		forKey: alwaysShowPriceUserDefaultsKey
@@ -96,6 +97,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		configureStatusItem()
+		startHoverPolling()
 		refresh()
 		timer = Timer.scheduledTimer(
 			withTimeInterval: configuration.updateInterval,
@@ -109,6 +111,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 	func applicationWillTerminate(_ notification: Notification) {
 		timer?.invalidate()
+		hoverPollTimer?.invalidate()
 		refreshTask?.cancel()
 	}
 
@@ -148,7 +151,6 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		statusItem.button?.imagePosition = .imageOnly
 		statusItem.button?.toolTip = "\(configuration.appName): \(menuPricePlaceholder)"
 		renderStatusItem()
-		configureHoverTracking()
 
 		let menu = NSMenu()
 		menu.delegate = self
@@ -247,32 +249,27 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		)
 	}
 
-	private func configureHoverTracking() {
-		guard let button = statusItem.button else {
+	private func startHoverPolling() {
+		let timer = Timer(timeInterval: hoverPollInterval, repeats: true) { [weak self] _ in
+			Task { @MainActor in
+				self?.updateHoverStateFromMouseLocation()
+			}
+		}
+		RunLoop.main.add(timer, forMode: .common)
+		hoverPollTimer = timer
+		updateHoverStateFromMouseLocation()
+	}
+
+	private func updateHoverStateFromMouseLocation() {
+		guard let button = statusItem.button,
+		      let window = button.window else {
+			setHoveringStatusItem(false)
 			return
 		}
 
-		let tracker = StatusItemHoverTracker(
-			onEnter: { [weak self] in
-				self?.setHoveringStatusItem(true)
-			},
-			onExit: { [weak self] in
-				self?.setHoveringStatusItem(false)
-			}
-		)
-		hoverTracker = tracker
-		button.addTrackingArea(
-			NSTrackingArea(
-				rect: .zero,
-				options: [
-					.mouseEnteredAndExited,
-					.activeAlways,
-					.inVisibleRect,
-				],
-				owner: tracker,
-				userInfo: nil
-			)
-		)
+		let buttonRectInWindow = button.convert(button.bounds, to: nil)
+		let buttonRectInScreen = window.convertToScreen(buttonRectInWindow)
+		setHoveringStatusItem(buttonRectInScreen.contains(NSEvent.mouseLocation))
 	}
 
 	private func setHoveringStatusItem(_ isHovering: Bool) {
@@ -303,26 +300,5 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 	private func shouldShowInlinePrice() -> Bool {
 		latestSnapshot != nil && (alwaysShowPrice || isHoveringStatusItem)
-	}
-}
-
-private final class StatusItemHoverTracker: NSObject {
-	private let onEnter: () -> Void
-	private let onExit: () -> Void
-
-	init(
-		onEnter: @escaping () -> Void,
-		onExit: @escaping () -> Void
-	) {
-		self.onEnter = onEnter
-		self.onExit = onExit
-	}
-
-	@objc func mouseEntered(with event: NSEvent) {
-		onEnter()
-	}
-
-	@objc func mouseExited(with event: NSEvent) {
-		onExit()
 	}
 }
