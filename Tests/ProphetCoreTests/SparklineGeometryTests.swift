@@ -28,4 +28,18 @@ final class SparklineGeometryTests: XCTestCase {
 
 		XCTAssertEqual(points.map(\.y), [9, 9, 9])
 	}
+
+	func testTimelinePointsPreserveTimeGaps() {
+		let points = TimelineGeometry.points(
+			for: [
+				PriceBar(timestamp: 0, open: 10, high: 10, low: 10, close: 10),
+				PriceBar(timestamp: 60, open: 11, high: 11, low: 11, close: 11),
+				PriceBar(timestamp: 600, open: 12, high: 12, low: 12, close: 12),
+			],
+			in: CGSize(width: 100, height: 20),
+			padding: 0
+		)
+
+		XCTAssertEqual(points.map(\.x), [0, 10, 100])
+	}
 }

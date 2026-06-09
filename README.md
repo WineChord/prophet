@@ -1,13 +1,18 @@
 # Prophet
 
 Prophet is a compact macOS menu-bar sparkline for one TradingView symbol. It
-renders only the curve in the status bar, keeps the latest price in the native
-hover tooltip, and uses TradingView-style green/red line colors.
+renders only the curve in the status bar and keeps the latest price in the native
+hover tooltip.
 
 The app requests one-minute TradingView chart bars with the `extended` session
 flag, so the curve includes every extended-hours bar TradingView returns for the
 symbol: pre-market, regular market, post-market, and any overnight bars available
 from the data source.
+
+The visible curve follows TradingView's overview chart behavior: it starts at the
+most recent regular-session open, keeps the real timestamp spacing between bars,
+leaves long no-trade gaps empty, uses TradingView green/red for the regular
+session, and uses a TradingView-style gray line for extended-hours segments.
 
 ## Default Symbol
 

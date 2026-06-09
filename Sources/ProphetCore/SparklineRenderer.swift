@@ -4,6 +4,8 @@ import Foundation
 
 private let sparklinePadding = 2.0
 private let sparklineLineWidth = 1.35
+private let regularFillAlpha = 0.11
+private let extendedLineAlpha = 0.75
 private let loadingLineWidth = 1.0
 private let loadingLineAlpha = 0.45
 private let tradingViewGreen = NSColor(
@@ -16,6 +18,12 @@ private let tradingViewRed = NSColor(
 	red: 242.0 / 255.0,
 	green: 54.0 / 255.0,
 	blue: 69.0 / 255.0,
+	alpha: 1
+)
+private let tradingViewGray = NSColor(
+	red: 178.0 / 255.0,
+	green: 181.0 / 255.0,
+	blue: 185.0 / 255.0,
 	alpha: 1
 )
 
@@ -50,27 +58,64 @@ public struct SparklineRenderer {
 	}
 
 	private func drawSparkline(snapshot: MarketSnapshot, size: NSSize) {
-		let values = snapshot.bars.map(\.close)
-		let points = SparklineGeometry.points(
-			for: values,
+		let points = TimelineGeometry.points(
+			for: snapshot.bars,
 			in: CGSize(width: size.width, height: size.height),
 			padding: sparklinePadding
 		)
-		guard let firstPoint = points.first else {
+		guard points.count > 1 else {
 			return
 		}
 
-		let path = NSBezierPath()
-		path.move(to: firstPoint)
-		for point in points.dropFirst() {
-			path.line(to: point)
+		let timeline = MarketTimeline(timeZoneIdentifier: snapshot.timeZoneIdentifier)
+		for index in 1..<points.count {
+			let leftBar = snapshot.bars[index - 1]
+			let rightBar = snapshot.bars[index]
+			guard timeline.canConnect(leftBar, rightBar) else {
+				continue
+			}
+
+			let color = lineColor(
+				for: timeline.session(for: rightBar.timestamp),
+				snapshot: snapshot
+			)
+			if timeline.session(for: rightBar.timestamp) == .regular {
+				drawFill(
+					from: points[index - 1],
+					to: points[index],
+					bottom: size.height - sparklinePadding,
+					color: color
+				)
+			}
+			drawLine(from: points[index - 1], to: points[index], color: color)
 		}
+	}
+
+	private func drawLine(from startPoint: CGPoint, to endPoint: CGPoint, color: NSColor) {
+		let path = NSBezierPath()
+		path.move(to: startPoint)
+		path.line(to: endPoint)
 		path.lineWidth = sparklineLineWidth
 		path.lineJoinStyle = .round
 		path.lineCapStyle = .round
-
-		lineColor(for: snapshot).setStroke()
+		color.setStroke()
 		path.stroke()
+	}
+
+	private func drawFill(
+		from startPoint: CGPoint,
+		to endPoint: CGPoint,
+		bottom: CGFloat,
+		color: NSColor
+	) {
+		let path = NSBezierPath()
+		path.move(to: NSPoint(x: startPoint.x, y: bottom))
+		path.line(to: startPoint)
+		path.line(to: endPoint)
+		path.line(to: NSPoint(x: endPoint.x, y: bottom))
+		path.close()
+		color.withAlphaComponent(regularFillAlpha).setFill()
+		path.fill()
 	}
 
 	private func drawLoadingLine(size: NSSize, hasError: Bool) {
@@ -86,7 +131,13 @@ public struct SparklineRenderer {
 		path.stroke()
 	}
 
-	private func lineColor(for snapshot: MarketSnapshot) -> NSColor {
+	private func lineColor(
+		for session: BarTradingSession,
+		snapshot: MarketSnapshot
+	) -> NSColor {
+		if session == .extended {
+			return tradingViewGray.withAlphaComponent(extendedLineAlpha)
+		}
 		guard let isUp = snapshot.isUp else {
 			return NSColor.labelColor
 		}

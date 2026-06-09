@@ -8,6 +8,7 @@ public enum ProphetDefaults {
 	public static let statusItemWidth = 72.0
 	public static let sparklineHeight = 18.0
 	public static let currencyCode = "USD"
+	public static let exchangeTimeZoneIdentifier = "America/New_York"
 }
 
 private let minimumUpdateInterval: TimeInterval = 5

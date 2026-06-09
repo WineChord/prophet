@@ -44,6 +44,7 @@ final class TradingViewParserTests: XCTestCase {
 						"short_name": "RKLB",
 						"description": "Rocket Lab Corporation",
 						"exchange": "Cboe One",
+						"timezone": "America/New_York",
 					],
 				],
 			]
@@ -56,6 +57,7 @@ final class TradingViewParserTests: XCTestCase {
 		XCTAssertEqual(quote?.lastPrice, 113.65)
 		XCTAssertEqual(quote?.session, .preMarket)
 		XCTAssertEqual(quote?.currencyCode, "USD")
+		XCTAssertEqual(quote?.timeZoneIdentifier, "America/New_York")
 	}
 
 	func testSnapshotPrefersLatestChartBarForDisplayedPrice() {

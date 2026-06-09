@@ -106,6 +106,7 @@ public struct MarketSnapshot: Equatable {
 	public let lastTradeTime: Date?
 	public let receivedAt: Date
 	public let currencyCode: String
+	public let timeZoneIdentifier: String
 
 	public init(
 		instrument: Instrument,
@@ -116,7 +117,8 @@ public struct MarketSnapshot: Equatable {
 		session: MarketSession = .unknown,
 		lastTradeTime: Date? = nil,
 		receivedAt: Date = Date(),
-		currencyCode: String = ProphetDefaults.currencyCode
+		currencyCode: String = ProphetDefaults.currencyCode,
+		timeZoneIdentifier: String = ProphetDefaults.exchangeTimeZoneIdentifier
 	) {
 		self.instrument = instrument
 		self.bars = bars
@@ -127,6 +129,7 @@ public struct MarketSnapshot: Equatable {
 		self.lastTradeTime = lastTradeTime
 		self.receivedAt = receivedAt
 		self.currencyCode = currencyCode
+		self.timeZoneIdentifier = timeZoneIdentifier
 	}
 
 	public var effectiveLastPrice: Double? {

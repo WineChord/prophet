@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="Prophet"
 BUNDLE_ID="com.wineandchord.prophet"
+APP_VERSION="0.1.1"
+BUILD_VERSION="2"
 DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$DIST_DIR/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
@@ -45,9 +47,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.1.0</string>
+	<string>$APP_VERSION</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>$BUILD_VERSION</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>LSUIElement</key>

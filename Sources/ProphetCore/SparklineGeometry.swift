@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 
-private let flatLinePosition = 0.5
+let flatLinePosition = 0.5
 
 public enum SparklineGeometry {
 	public static func points(

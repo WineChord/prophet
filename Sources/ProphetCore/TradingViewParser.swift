@@ -17,6 +17,7 @@ private let quoteCurrencyCodeKey = "currency_code"
 private let quoteShortNameKey = "short_name"
 private let quoteDescriptionKey = "description"
 private let quoteExchangeKey = "exchange"
+private let quoteTimezoneKey = "timezone"
 private let seriesValuesKey = "s"
 private let barValuesKey = "v"
 private let minimumBarFieldCount = 5
@@ -38,6 +39,7 @@ public struct TradingViewQuote: Equatable {
 	public var session: MarketSession
 	public var lastTradeTime: Date?
 	public var currencyCode: String?
+	public var timeZoneIdentifier: String?
 
 	public init(
 		symbol: String? = nil,
@@ -49,7 +51,8 @@ public struct TradingViewQuote: Equatable {
 		changePercent: Double? = nil,
 		session: MarketSession = .unknown,
 		lastTradeTime: Date? = nil,
-		currencyCode: String? = nil
+		currencyCode: String? = nil,
+		timeZoneIdentifier: String? = nil
 	) {
 		self.symbol = symbol
 		self.displaySymbol = displaySymbol
@@ -61,6 +64,7 @@ public struct TradingViewQuote: Equatable {
 		self.session = session
 		self.lastTradeTime = lastTradeTime
 		self.currencyCode = currencyCode
+		self.timeZoneIdentifier = timeZoneIdentifier
 	}
 }
 
@@ -105,7 +109,8 @@ public enum TradingViewParser {
 			changePercent: doubleValue(values[quoteChangePercentKey]),
 			session: MarketSession(tradingViewValue: values[quoteSessionKey] as? String),
 			lastTradeTime: lastPriceTime,
-			currencyCode: values[quoteCurrencyCodeKey] as? String
+			currencyCode: values[quoteCurrencyCodeKey] as? String,
+			timeZoneIdentifier: values[quoteTimezoneKey] as? String
 		)
 	}
 

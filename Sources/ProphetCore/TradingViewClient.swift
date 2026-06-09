@@ -246,15 +246,19 @@ public final class TradingViewClient: MarketDataFetching {
 			description: quote.description ?? instrument.description,
 			exchange: quote.exchange ?? instrument.exchange
 		)
+		let timeZoneIdentifier = quote.timeZoneIdentifier ?? ProphetDefaults.exchangeTimeZoneIdentifier
+		let overviewBars = MarketTimeline(timeZoneIdentifier: timeZoneIdentifier)
+			.overviewBars(from: bars)
 		return MarketSnapshot(
 			instrument: mergedInstrument,
-			bars: bars,
+			bars: overviewBars,
 			lastPrice: quote.lastPrice,
 			change: quote.change,
 			changePercent: quote.changePercent,
 			session: quote.session,
 			lastTradeTime: quote.lastTradeTime,
-			currencyCode: quote.currencyCode ?? ProphetDefaults.currencyCode
+			currencyCode: quote.currencyCode ?? ProphetDefaults.currencyCode,
+			timeZoneIdentifier: timeZoneIdentifier
 		)
 	}
 }
