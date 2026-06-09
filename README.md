@@ -12,9 +12,9 @@ from the data source.
 
 The visible curve follows TradingView's overview chart behavior: it starts at the
 most recent regular-session open, keeps the real timestamp spacing between bars,
-compresses long no-trade gaps into compact single-slash break markers, uses TradingView
-green/red for the regular session, and uses a TradingView-style gray line for
-extended-hours segments.
+compresses long no-trade gaps into compact single-slash break markers, uses the
+selected up/down color scheme for the regular session, and uses a
+TradingView-style gray line for extended-hours segments.
 
 ## Default Symbol
 
@@ -73,3 +73,6 @@ while hovered.
 
 Use `Price Label Size` to choose the centered label size. `Regular` is the
 default, with `Compact` and `Large` available from the menu.
+
+Use `Color Scheme` to choose the up/down colors. `Red Up` is the default, with
+`Green Up` available from the menu.

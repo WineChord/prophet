@@ -40,6 +40,13 @@ private let tradingViewGray = NSColor(
 	alpha: 1
 )
 
+public enum MarketColorScheme: String {
+	case redUp
+	case greenUp
+
+	public static let defaultScheme = MarketColorScheme.redUp
+}
+
 public struct SparklineRenderer {
 	private let snapshotFormatter = MarketSnapshotFormatter()
 
@@ -51,7 +58,8 @@ public struct SparklineRenderer {
 		width: Double,
 		height: Double = ProphetDefaults.sparklineHeight,
 		showsPrice: Bool = false,
-		priceLabelFontSize: Double = ProphetDefaults.priceLabelFontSize
+		priceLabelFontSize: Double = ProphetDefaults.priceLabelFontSize,
+		colorScheme: MarketColorScheme = .defaultScheme
 	) -> NSImage {
 		let size = NSSize(width: width, height: height)
 		let image = NSImage(size: size)
@@ -68,7 +76,8 @@ public struct SparklineRenderer {
 				snapshot: snapshot,
 				size: size,
 				showsPrice: showsPrice,
-				priceLabelFontSize: priceLabelFontSize
+				priceLabelFontSize: priceLabelFontSize,
+				colorScheme: colorScheme
 			)
 			image.isTemplate = false
 			return image
@@ -83,7 +92,8 @@ public struct SparklineRenderer {
 		snapshot: MarketSnapshot,
 		size: NSSize,
 		showsPrice: Bool,
-		priceLabelFontSize: Double
+		priceLabelFontSize: Double,
+		colorScheme: MarketColorScheme
 	) {
 		let priceTextLayout: PriceTextLayout?
 		if showsPrice {
@@ -116,7 +126,8 @@ public struct SparklineRenderer {
 
 			let color = lineColor(
 				for: timeline.session(for: rightBar.timestamp),
-				snapshot: snapshot
+				snapshot: snapshot,
+				colorScheme: colorScheme
 			)
 			if timeline.session(for: rightBar.timestamp) == .regular {
 				drawFill(
@@ -133,7 +144,11 @@ public struct SparklineRenderer {
 			drawBreakMarker(timelineBreak, size: size)
 		}
 		if let priceTextLayout {
-			drawPriceText(priceTextLayout, snapshot: snapshot)
+			drawPriceText(
+				priceTextLayout,
+				snapshot: snapshot,
+				colorScheme: colorScheme
+			)
 		}
 	}
 
@@ -237,9 +252,14 @@ public struct SparklineRenderer {
 
 	private func drawPriceText(
 		_ layout: PriceTextLayout,
-		snapshot: MarketSnapshot
+		snapshot: MarketSnapshot,
+		colorScheme: MarketColorScheme
 	) {
-		drawPriceBadge(layout, snapshot: snapshot)
+		drawPriceBadge(
+			layout,
+			snapshot: snapshot,
+			colorScheme: colorScheme
+		)
 		let color = priceTextColor()
 		let attributes: [NSAttributedString.Key: Any] = [
 			.font: layout.font,
@@ -250,14 +270,15 @@ public struct SparklineRenderer {
 
 	private func drawPriceBadge(
 		_ layout: PriceTextLayout,
-		snapshot: MarketSnapshot
+		snapshot: MarketSnapshot,
+		colorScheme: MarketColorScheme
 	) {
 		let path = NSBezierPath(
 			roundedRect: layout.badgeRect,
 			xRadius: priceBadgeCornerRadius,
 			yRadius: priceBadgeCornerRadius
 		)
-		priceBadgeColor(for: snapshot).setFill()
+		priceBadgeColor(for: snapshot, colorScheme: colorScheme).setFill()
 		path.fill()
 		NSColor.white.withAlphaComponent(priceBadgeBorderAlpha).setStroke()
 		path.lineWidth = 0.5
@@ -316,7 +337,8 @@ public struct SparklineRenderer {
 
 	private func lineColor(
 		for session: BarTradingSession,
-		snapshot: MarketSnapshot
+		snapshot: MarketSnapshot,
+		colorScheme: MarketColorScheme
 	) -> NSColor {
 		if session == .extended {
 			return tradingViewGray.withAlphaComponent(extendedLineAlpha)
@@ -324,15 +346,30 @@ public struct SparklineRenderer {
 		guard let isUp = snapshot.isUp else {
 			return NSColor.labelColor
 		}
-		return isUp ? tradingViewGreen : tradingViewRed
+		return directionColor(isUp: isUp, colorScheme: colorScheme)
 	}
 
-	private func priceBadgeColor(for snapshot: MarketSnapshot) -> NSColor {
+	private func priceBadgeColor(
+		for snapshot: MarketSnapshot,
+		colorScheme: MarketColorScheme
+	) -> NSColor {
 		guard let isUp = snapshot.isUp else {
 			return tradingViewGray.withAlphaComponent(priceBadgeAlpha)
 		}
-		let color = isUp ? tradingViewGreen : tradingViewRed
+		let color = directionColor(isUp: isUp, colorScheme: colorScheme)
 		return color.withAlphaComponent(priceBadgeAlpha)
+	}
+
+	private func directionColor(
+		isUp: Bool,
+		colorScheme: MarketColorScheme
+	) -> NSColor {
+		switch colorScheme {
+		case .redUp:
+			return isUp ? tradingViewRed : tradingViewGreen
+		case .greenUp:
+			return isUp ? tradingViewGreen : tradingViewRed
+		}
 	}
 
 	private func priceTextColor() -> NSColor {

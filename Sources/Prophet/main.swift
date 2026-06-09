@@ -10,6 +10,7 @@ private let refreshTitle = "Refresh"
 private let openTradingViewTitle = "Open in TradingView"
 private let alwaysShowPriceTitle = "Always Show Price"
 private let priceLabelSizeTitle = "Price Label Size"
+private let colorSchemeTitle = "Color Scheme"
 private let quitTitle = "Quit Prophet"
 private let emptyKeyEquivalent = ""
 private let quitKeyEquivalent = "q"
@@ -17,6 +18,7 @@ private let tooltipUnavailablePrice = "Price unavailable"
 private let tradingViewChartURLPrefix = "https://www.tradingview.com/chart/?symbol="
 private let alwaysShowPriceUserDefaultsKey = "alwaysShowPrice"
 private let priceLabelSizeUserDefaultsKey = "priceLabelSize"
+private let colorSchemeUserDefaultsKey = "colorScheme"
 private let hoverPollInterval: TimeInterval = 0.08
 
 private var retainedDelegate: ProphetAppDelegate?
@@ -47,6 +49,31 @@ private enum PriceLabelSize: String, CaseIterable {
 			return ProphetDefaults.priceLabelFontSize
 		case .large:
 			return 12.0
+		}
+	}
+}
+
+private enum ColorSchemeOption: String, CaseIterable {
+	case redUp
+	case greenUp
+
+	static let defaultOption = ColorSchemeOption.redUp
+
+	var title: String {
+		switch self {
+		case .redUp:
+			return "Red Up"
+		case .greenUp:
+			return "Green Up"
+		}
+	}
+
+	var rendererScheme: MarketColorScheme {
+		switch self {
+		case .redUp:
+			return .redUp
+		case .greenUp:
+			return .greenUp
 		}
 	}
 }
@@ -115,8 +142,15 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		action: nil,
 		keyEquivalent: emptyKeyEquivalent
 	)
+	private let colorSchemeItem = NSMenuItem(
+		title: colorSchemeTitle,
+		action: nil,
+		keyEquivalent: emptyKeyEquivalent
+	)
 	private let priceLabelSizeMenu = NSMenu()
+	private let colorSchemeMenu = NSMenu()
 	private var priceLabelSizeItems: [NSMenuItem] = []
+	private var colorSchemeItems: [NSMenuItem] = []
 	private var timer: Timer?
 	private var hoverPollTimer: Timer?
 	private var refreshTask: Task<Void, Never>?
@@ -131,6 +165,11 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			forKey: priceLabelSizeUserDefaultsKey
 		) ?? emptyKeyEquivalent
 	) ?? PriceLabelSize.defaultSize
+	private var colorScheme = ColorSchemeOption(
+		rawValue: UserDefaults.standard.string(
+			forKey: colorSchemeUserDefaultsKey
+		) ?? emptyKeyEquivalent
+	) ?? ColorSchemeOption.defaultOption
 
 	override init() {
 		statusItem = NSStatusBar.system.statusItem(
@@ -198,6 +237,18 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		updateMenu()
 	}
 
+	@objc private func selectColorScheme(_ sender: NSMenuItem) {
+		guard let rawValue = sender.representedObject as? String,
+		      let scheme = ColorSchemeOption(rawValue: rawValue) else {
+			return
+		}
+
+		colorScheme = scheme
+		UserDefaults.standard.set(scheme.rawValue, forKey: colorSchemeUserDefaultsKey)
+		renderStatusItem()
+		updateMenu()
+	}
+
 	@objc private func quit() {
 		NSApplication.shared.terminate(nil)
 	}
@@ -233,6 +284,8 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		menu.addItem(alwaysShowPriceItem)
 		configurePriceLabelSizeMenu()
 		menu.addItem(priceLabelSizeItem)
+		configureColorSchemeMenu()
+		menu.addItem(colorSchemeItem)
 		menu.addItem(.separator())
 		menu.addItem(
 			NSMenuItem(
@@ -257,6 +310,21 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			return item
 		}
 		priceLabelSizeItem.submenu = priceLabelSizeMenu
+	}
+
+	private func configureColorSchemeMenu() {
+		colorSchemeItems = ColorSchemeOption.allCases.map { scheme in
+			let item = NSMenuItem(
+				title: scheme.title,
+				action: #selector(selectColorScheme(_:)),
+				keyEquivalent: emptyKeyEquivalent
+			)
+			item.target = self
+			item.representedObject = scheme.rawValue
+			colorSchemeMenu.addItem(item)
+			return item
+		}
+		colorSchemeItem.submenu = colorSchemeMenu
 	}
 
 	private func refresh() {
@@ -321,6 +389,10 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			let rawValue = item.representedObject as? String
 			item.state = rawValue == priceLabelSize.rawValue ? .on : .off
 		}
+		for item in colorSchemeItems {
+			let rawValue = item.representedObject as? String
+			item.state = rawValue == colorScheme.rawValue ? .on : .off
+		}
 	}
 
 	private func tooltipText(for snapshot: MarketSnapshot) -> String {
@@ -370,7 +442,8 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			width: width,
 			height: ProphetDefaults.sparklineHeight,
 			showsPrice: shouldShowInlinePrice(),
-			priceLabelFontSize: priceLabelSize.fontSize
+			priceLabelFontSize: priceLabelSize.fontSize,
+			colorScheme: colorScheme.rendererScheme
 		)
 	}
 
