@@ -75,6 +75,9 @@ Use `Always Show Price` to keep the latest price visible in the status bar.
 When it is off, the status item keeps the same width and only overlays the price
 while hovered.
 
+Use `Launch at Login` to control whether Prophet opens automatically after login.
+It is enabled by default on first launch.
+
 Use `Price Label Size` to choose the centered label size. `Regular` is the
 default, with `Compact` and `Large` available from the menu.
 

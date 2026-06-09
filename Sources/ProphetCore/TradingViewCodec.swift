@@ -78,8 +78,8 @@ public enum TradingViewCodec {
 			}
 			let body = String(text[bodyStart..<bodyEnd])
 			let data = Data(body.utf8)
-			let object = try JSONSerialization.jsonObject(with: data, options: [])
-			if let message = object as? [String: Any] {
+			if let object = try? JSONSerialization.jsonObject(with: data, options: []),
+			   let message = object as? [String: Any] {
 				let frame = TradingViewFrame(
 					method: message[messageMethodKey] as? String,
 					parameters: message[messageParametersKey] as? [Any] ?? [],

@@ -3,12 +3,15 @@ import Darwin
 import Dispatch
 import Foundation
 import ProphetCore
+import ServiceManagement
 
 private let smokeFetchArgument = "--smoke-fetch"
+private let measureQuoteIntervalsArgument = "--measure-quote-intervals"
 private let menuPricePlaceholder = "Loading..."
 private let refreshTitle = "Refresh"
 private let openTradingViewTitle = "Open in TradingView"
 private let alwaysShowPriceTitle = "Always Show Price"
+private let launchAtLoginTitle = "Launch at Login"
 private let priceLabelSizeTitle = "Price Label Size"
 private let colorSchemeTitle = "Color Scheme"
 private let quitTitle = "Quit Prophet"
@@ -17,10 +20,15 @@ private let quitKeyEquivalent = "q"
 private let tooltipUnavailablePrice = "Price unavailable"
 private let tradingViewChartURLPrefix = "https://www.tradingview.com/chart/?symbol="
 private let alwaysShowPriceUserDefaultsKey = "alwaysShowPrice"
+private let launchAtLoginUserDefaultsKey = "launchAtLogin"
 private let priceLabelSizeUserDefaultsKey = "priceLabelSize"
 private let colorSchemeUserDefaultsKey = "colorScheme"
 private let hoverPollInterval: TimeInterval = 0.08
 private let quoteStreamReconnectDelayNanoseconds: UInt64 = 2_000_000_000
+private let quoteIntervalMeasureDurationNanoseconds: UInt64 = 20_000_000_000
+private let quoteIntervalMeasureMaxUpdates = 25
+private let initialIntervalText = "initial"
+private let unavailableIntervalText = "-"
 
 private var retainedDelegate: ProphetAppDelegate?
 
@@ -85,6 +93,9 @@ enum ProphetMain {
 		if CommandLine.arguments.contains(smokeFetchArgument) {
 			SmokeFetchCommand.run()
 		}
+		if CommandLine.arguments.contains(measureQuoteIntervalsArgument) {
+			QuoteIntervalMeasureCommand.run()
+		}
 
 		let application = NSApplication.shared
 		let delegate = ProphetAppDelegate()
@@ -92,6 +103,114 @@ enum ProphetMain {
 		application.delegate = delegate
 		application.setActivationPolicy(.accessory)
 		application.run()
+	}
+}
+
+private enum QuoteIntervalMeasureCommand {
+	static func run() {
+		_ = Task<Void, Never> {
+			do {
+				try await measure()
+				Darwin.exit(EXIT_SUCCESS)
+			} catch {
+				fputs("\(error.localizedDescription)\n", stderr)
+				Darwin.exit(EXIT_FAILURE)
+			}
+		}
+		dispatchMain()
+	}
+
+	private static func measure() async throws {
+		let configuration = AppConfiguration.load()
+		let recorder = QuoteIntervalRecorder()
+		let measureTask = Task<Void, Error> {
+			for try await quote in TradingViewClient().quoteStream(
+				for: configuration.requestedSymbol
+			) {
+				let shouldStop = await recorder.record(quote)
+				if shouldStop {
+					break
+				}
+			}
+		}
+		let timeoutTask = Task<Void, Never> {
+			try? await Task.sleep(nanoseconds: quoteIntervalMeasureDurationNanoseconds)
+			measureTask.cancel()
+		}
+
+		do {
+			try await measureTask.value
+		} catch is CancellationError {
+		}
+		timeoutTask.cancel()
+		print(await recorder.summary())
+	}
+}
+
+private actor QuoteIntervalRecorder {
+	private var previousAt: Date?
+	private var previousPrice: Double?
+	private var updateCount = 0
+	private var priceChangeCount = 0
+	private var intervals: [TimeInterval] = []
+
+	func record(_ quote: TradingViewQuote) -> Bool {
+		let now = Date()
+		updateCount += 1
+
+		let interval: TimeInterval?
+		if let previousAt {
+			interval = now.timeIntervalSince(previousAt)
+			if let interval {
+				intervals.append(interval)
+			}
+		} else {
+			interval = nil
+		}
+		previousAt = now
+
+		if let price = quote.lastPrice, price != previousPrice {
+			priceChangeCount += 1
+			previousPrice = price
+		}
+
+		print(
+			[
+				"quote",
+				String(updateCount),
+				"interval=\(interval.map(formatSeconds) ?? initialIntervalText)",
+				"price=\(quote.lastPrice.map(formatPrice) ?? unavailableIntervalText)",
+				"session=\(quote.session.displayName)",
+			].joined(separator: " ")
+		)
+		fflush(stdout)
+		return updateCount >= quoteIntervalMeasureMaxUpdates
+	}
+
+	func summary() -> String {
+		guard !intervals.isEmpty else {
+			return "summary updates=\(updateCount) priceChanges=\(priceChangeCount) intervals=none"
+		}
+
+		let sortedIntervals = intervals.sorted()
+		let average = intervals.reduce(0, +) / Double(intervals.count)
+		return [
+			"summary",
+			"updates=\(updateCount)",
+			"priceChanges=\(priceChangeCount)",
+			"avg=\(formatSeconds(average))",
+			"min=\(formatSeconds(sortedIntervals.first ?? 0))",
+			"median=\(formatSeconds(sortedIntervals[sortedIntervals.count / 2]))",
+			"max=\(formatSeconds(sortedIntervals.last ?? 0))",
+		].joined(separator: " ")
+	}
+
+	private func formatSeconds(_ value: TimeInterval) -> String {
+		String(format: "%.3fs", value)
+	}
+
+	private func formatPrice(_ value: Double) -> String {
+		String(format: "%.2f", value)
 	}
 }
 
@@ -138,6 +257,11 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		action: #selector(toggleAlwaysShowPrice),
 		keyEquivalent: emptyKeyEquivalent
 	)
+	private let launchAtLoginItem = NSMenuItem(
+		title: launchAtLoginTitle,
+		action: #selector(toggleLaunchAtLogin),
+		keyEquivalent: emptyKeyEquivalent
+	)
 	private let priceLabelSizeItem = NSMenuItem(
 		title: priceLabelSizeTitle,
 		action: nil,
@@ -163,6 +287,9 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 	private var alwaysShowPrice = UserDefaults.standard.bool(
 		forKey: alwaysShowPriceUserDefaultsKey
 	)
+	private var launchAtLogin = defaultEnabledPreference(
+		forKey: launchAtLoginUserDefaultsKey
+	)
 	private var priceLabelSize = PriceLabelSize(
 		rawValue: UserDefaults.standard.string(
 			forKey: priceLabelSizeUserDefaultsKey
@@ -183,6 +310,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 	func applicationDidFinishLaunching(_ notification: Notification) {
 		configureStatusItem()
+		syncLaunchAtLoginPreference()
 		startHoverPolling()
 		startQuoteStream()
 		refresh()
@@ -227,6 +355,13 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 			forKey: alwaysShowPriceUserDefaultsKey
 		)
 		renderStatusItem()
+		updateMenu()
+	}
+
+	@objc private func toggleLaunchAtLogin() {
+		launchAtLogin = SMAppService.mainApp.status != .enabled
+		UserDefaults.standard.set(launchAtLogin, forKey: launchAtLoginUserDefaultsKey)
+		syncLaunchAtLoginPreference()
 		updateMenu()
 	}
 
@@ -287,6 +422,8 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		)
 		alwaysShowPriceItem.target = self
 		menu.addItem(alwaysShowPriceItem)
+		launchAtLoginItem.target = self
+		menu.addItem(launchAtLoginItem)
 		configurePriceLabelSizeMenu()
 		menu.addItem(priceLabelSizeItem)
 		configureColorSchemeMenu()
@@ -412,6 +549,7 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 	private func updatePreferenceMenuItems() {
 		alwaysShowPriceItem.state = alwaysShowPrice ? .on : .off
+		launchAtLoginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
 		for item in priceLabelSizeItems {
 			let rawValue = item.representedObject as? String
 			item.state = rawValue == priceLabelSize.rawValue ? .on : .off
@@ -419,6 +557,20 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 		for item in colorSchemeItems {
 			let rawValue = item.representedObject as? String
 			item.state = rawValue == colorScheme.rawValue ? .on : .off
+		}
+	}
+
+	private func syncLaunchAtLoginPreference() {
+		do {
+			if launchAtLogin {
+				if SMAppService.mainApp.status != .enabled {
+					try SMAppService.mainApp.register()
+				}
+			} else if SMAppService.mainApp.status == .enabled {
+				try SMAppService.mainApp.unregister()
+			}
+		} catch {
+			statusItem.button?.toolTip = "\(configuration.appName): \(error.localizedDescription)"
 		}
 	}
 
@@ -530,4 +682,12 @@ private extension Instrument {
 			exchange: quote.exchange ?? exchange
 		)
 	}
+}
+
+private func defaultEnabledPreference(forKey key: String) -> Bool {
+	if UserDefaults.standard.object(forKey: key) == nil {
+		UserDefaults.standard.set(true, forKey: key)
+		return true
+	}
+	return UserDefaults.standard.bool(forKey: key)
 }

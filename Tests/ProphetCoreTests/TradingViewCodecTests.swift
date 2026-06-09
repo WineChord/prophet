@@ -28,4 +28,16 @@ final class TradingViewCodecTests: XCTestCase {
 		XCTAssertEqual(frames[0].heartbeat, "~h~12345")
 		XCTAssertEqual(frames[1].method, "series_completed")
 	}
+
+	func testDecodeSkipsMalformedFrame() throws {
+		let message = try TradingViewCodec.encode(
+			method: "quote_create_session",
+			parameters: ["qs_test"]
+		)
+
+		let frames = try TradingViewCodec.decodeFrames(from: "~m~3~m~bad" + message)
+
+		XCTAssertEqual(frames.count, 1)
+		XCTAssertEqual(frames[0].method, "quote_create_session")
+	}
 }
