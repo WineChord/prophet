@@ -708,14 +708,15 @@ private final class ProphetAppDelegate: NSObject, NSApplicationDelegate, NSMenuD
 
 private extension MarketSnapshot {
 	func applying(quote: TradingViewQuote) -> MarketSnapshot {
-		MarketSnapshot(
+		let resolvedQuote = quote.resolvedValues(with: bars)
+		return MarketSnapshot(
 			instrument: instrument.applying(quote: quote),
 			bars: bars,
-			lastPrice: quote.effectiveLastPrice ?? lastPrice,
-			change: quote.effectiveChange ?? change,
-			changePercent: quote.effectiveChangePercent ?? changePercent,
+			lastPrice: resolvedQuote.lastPrice ?? lastPrice,
+			change: resolvedQuote.change ?? change,
+			changePercent: resolvedQuote.changePercent ?? changePercent,
 			session: quote.session == .unknown ? session : quote.session,
-			lastTradeTime: quote.lastTradeTime ?? lastTradeTime,
+			lastTradeTime: resolvedQuote.lastTradeTime ?? lastTradeTime,
 			receivedAt: Date(),
 			currencyCode: quote.currencyCode ?? currencyCode,
 			timeZoneIdentifier: quote.timeZoneIdentifier ?? timeZoneIdentifier

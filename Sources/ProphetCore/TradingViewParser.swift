@@ -27,6 +27,7 @@ private let quotePostmarketChangePercentKey = "postmarket_change_percent"
 private let seriesValuesKey = "s"
 private let barValuesKey = "v"
 private let minimumBarFieldCount = 5
+private let staleQuoteBarLeadThreshold: TimeInterval = 60
 private let barTimestampIndex = 0
 private let barOpenIndex = 1
 private let barHighIndex = 2
@@ -151,6 +152,85 @@ public struct TradingViewQuote: Equatable {
 			return postMarketChangePercent ?? preMarketChangePercent ?? changePercent
 		}
 	}
+
+	public var effectiveBaselinePrice: Double? {
+		if let price = effectiveLastPrice, let change = effectiveChange {
+			return price - change
+		}
+		if let price = effectiveLastPrice, let changePercent = effectiveChangePercent {
+			let denominator = 1 + changePercent / 100
+			if denominator != 0 {
+				return price / denominator
+			}
+		}
+		return regularBaselinePrice
+	}
+
+	public func resolvedValues(with bars: [PriceBar]) -> TradingViewResolvedQuote {
+		guard shouldPreferLatestBar(from: bars),
+		      let latestBar = bars.last else {
+			return TradingViewResolvedQuote(
+				lastPrice: effectiveLastPrice,
+				change: effectiveChange,
+				changePercent: effectiveChangePercent,
+				lastTradeTime: lastTradeTime
+			)
+		}
+
+		let baseline = regularBaselinePrice ?? effectiveBaselinePrice
+		let resolvedChange = baseline.map { latestBar.close - $0 } ?? effectiveChange
+		let resolvedChangePercent = percentageChange(
+			change: resolvedChange,
+			baseline: baseline
+		) ?? effectiveChangePercent
+		return TradingViewResolvedQuote(
+			lastPrice: latestBar.close,
+			change: resolvedChange,
+			changePercent: resolvedChangePercent,
+			lastTradeTime: Date(timeIntervalSince1970: latestBar.timestamp)
+		)
+	}
+
+	private var regularBaselinePrice: Double? {
+		if let lastPrice, let change {
+			return lastPrice - change
+		}
+		if let lastPrice, let changePercent {
+			let denominator = 1 + changePercent / 100
+			if denominator != 0 {
+				return lastPrice / denominator
+			}
+		}
+		return nil
+	}
+
+	private func shouldPreferLatestBar(from bars: [PriceBar]) -> Bool {
+		guard session != .regular,
+		      let latestBar = bars.last,
+		      latestBar.close != effectiveLastPrice else {
+			return false
+		}
+		guard let lastTradeTime else {
+			return true
+		}
+		return latestBar.timestamp > lastTradeTime.timeIntervalSince1970 + staleQuoteBarLeadThreshold
+	}
+}
+
+public struct TradingViewResolvedQuote: Equatable {
+	public let lastPrice: Double?
+	public let change: Double?
+	public let changePercent: Double?
+	public let lastTradeTime: Date?
+}
+
+private func percentageChange(change: Double?, baseline: Double?) -> Double? {
+	guard let change,
+	      let baseline,
+	      baseline != 0 else {
+		return nil
+	}
+	return change / baseline * 100
 }
 
 public enum TradingViewParser {

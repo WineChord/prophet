@@ -73,6 +73,10 @@ final class TradingViewParserTests: XCTestCase {
 		XCTAssertEqual(MarketSession(tradingViewValue: "market"), .regular)
 	}
 
+	func testMarketSessionParsesTradingViewOutOfSessionAlias() {
+		XCTAssertEqual(MarketSession(tradingViewValue: "out_of_session"), .closed)
+	}
+
 	func testQuoteUsesRegularLastPriceDuringRegularSession() {
 		let quote = TradingViewQuote(
 			lastPrice: 115.37,
@@ -139,6 +143,46 @@ final class TradingViewParserTests: XCTestCase {
 		XCTAssertEqual(mergedQuote.effectiveChange, 4.54)
 		XCTAssertEqual(mergedQuote.effectiveChangePercent, 3.99)
 		XCTAssertEqual(mergedQuote.lastPrice, 113.65)
+	}
+
+	func testClosedQuoteUsesNewerChartBarPrice() {
+		let quote = TradingViewQuote(
+			lastPrice: 108.23,
+			change: -5.42,
+			changePercent: -4.77,
+			postMarketPrice: 108.17,
+			session: .closed,
+			lastTradeTime: Date(timeIntervalSince1970: 1_000)
+		)
+		let bars = [
+			PriceBar(timestamp: 1_000, open: 108.17, high: 108.17, low: 108.17, close: 108.17),
+			PriceBar(timestamp: 1_180, open: 104.36, high: 104.4, low: 104.28, close: 104.28),
+		]
+
+		let resolvedQuote = quote.resolvedValues(with: bars)
+
+		XCTAssertEqual(resolvedQuote.lastPrice, 104.28)
+		XCTAssertEqual(resolvedQuote.change ?? 0, -9.37, accuracy: 0.001)
+		XCTAssertEqual(resolvedQuote.changePercent ?? 0, -8.2446, accuracy: 0.001)
+	}
+
+	func testRegularQuoteKeepsLiveQuotePriceOverChartBarPrice() {
+		let quote = TradingViewQuote(
+			lastPrice: 115.37,
+			change: 1.72,
+			changePercent: 1.51,
+			session: .regular,
+			lastTradeTime: Date(timeIntervalSince1970: 1_000)
+		)
+		let bars = [
+			PriceBar(timestamp: 1_180, open: 114.36, high: 114.4, low: 114.28, close: 114.28),
+		]
+
+		let resolvedQuote = quote.resolvedValues(with: bars)
+
+		XCTAssertEqual(resolvedQuote.lastPrice, 115.37)
+		XCTAssertEqual(resolvedQuote.change, 1.72)
+		XCTAssertEqual(resolvedQuote.changePercent, 1.51)
 	}
 
 	func testSnapshotPrefersLiveQuoteForDisplayedPrice() {

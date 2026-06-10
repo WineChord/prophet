@@ -71,7 +71,7 @@ public enum MarketSession: String, Equatable {
 			self = .postMarket
 		case "extended":
 			self = .extended
-		case "market_closed":
+		case "market_closed", "out_of_session":
 			self = .closed
 		default:
 			self = .unknown
