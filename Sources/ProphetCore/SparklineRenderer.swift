@@ -342,7 +342,7 @@ public struct SparklineRenderer {
 		path.lineWidth = loadingLineWidth
 		path.lineCapStyle = .round
 
-		let color = hasError ? tradingViewRed : NSColor.secondaryLabelColor
+		let color = hasError ? tradingViewRed : tradingViewGray
 		color.withAlphaComponent(loadingLineAlpha).setStroke()
 		path.stroke()
 	}
@@ -356,7 +356,7 @@ public struct SparklineRenderer {
 			return tradingViewGray.withAlphaComponent(extendedLineAlpha)
 		}
 		guard let isUp = snapshot.isUp else {
-			return NSColor.labelColor
+			return tradingViewGray.withAlphaComponent(regularLineAlpha)
 		}
 		return directionColor(
 			isUp: isUp,
