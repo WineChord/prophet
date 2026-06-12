@@ -152,7 +152,7 @@ final class TradingViewParserTests: XCTestCase {
 			changePercent: -4.77,
 			postMarketPrice: 108.17,
 			session: .closed,
-			lastTradeTime: Date(timeIntervalSince1970: 1_000)
+			lastTradeTime: Date(timeIntervalSince1970: 1_199)
 		)
 		let bars = [
 			PriceBar(timestamp: 1_000, open: 108.17, high: 108.17, low: 108.17, close: 108.17),

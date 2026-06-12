@@ -27,7 +27,6 @@ private let quotePostmarketChangePercentKey = "postmarket_change_percent"
 private let seriesValuesKey = "s"
 private let barValuesKey = "v"
 private let minimumBarFieldCount = 5
-private let staleQuoteBarLeadThreshold: TimeInterval = 60
 private let barTimestampIndex = 0
 private let barOpenIndex = 1
 private let barHighIndex = 2
@@ -210,10 +209,7 @@ public struct TradingViewQuote: Equatable {
 		      latestBar.close != effectiveLastPrice else {
 			return false
 		}
-		guard let lastTradeTime else {
-			return true
-		}
-		return latestBar.timestamp > lastTradeTime.timeIntervalSince1970 + staleQuoteBarLeadThreshold
+		return true
 	}
 }
 
